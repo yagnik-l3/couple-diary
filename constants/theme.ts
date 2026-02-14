@@ -1,53 +1,123 @@
-/**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
- */
+import { moderateScale as ms, scale as s } from '@/utils/scale';
 
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
+// ─── Color Palette ────────────────────────────────────
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+  // Primary gradient stops
+  deepNavy: '#0B0D2E',
+  indigo: '#1A1B4B',
+  violet: '#3D2C6E',
+  softPink: '#C77DB8',
+  rosePink: '#E8A0BF',
+
+  // Accent
+  goldSparkle: '#F5D08A',
+  lavender: '#B8A9E8',
+  roseAccent: '#E86A9E',
+
+  // Text
+  textPrimary: '#F0EBF4',
+  textSecondary: '#A9A3B8',
+  textMuted: '#6E6880',
+
+  // Surfaces
+  cardBg: 'rgba(30, 25, 60, 0.65)',
+  cardBgSolid: '#1E193C',
+  glassBg: 'rgba(255, 255, 255, 0.08)',
+  glassBorder: 'rgba(255, 255, 255, 0.12)',
+  inputBg: 'rgba(255, 255, 255, 0.06)',
+  inputBorder: 'rgba(255, 255, 255, 0.10)',
+
+  // Misc
+  streakFlame: '#FF8C42',
+  success: '#6ECB8A',
+  warning: '#F5D08A',
+  danger: '#E86A6A',
+  white08: 'rgba(255,255,255,0.08)',
+  white15: 'rgba(255,255,255,0.15)',
+  white30: 'rgba(255,255,255,0.30)',
+};
+
+// ─── Gradients ────────────────────────────────────────
+export const Gradients = {
+  background: [Colors.deepNavy, Colors.indigo, Colors.violet] as const,
+  backgroundFull: [Colors.deepNavy, Colors.indigo, Colors.violet, '#2D1B4E'] as const,
+  button: ['#6C3DB8', '#9B4DCA', Colors.softPink] as const,
+  buttonSubtle: ['rgba(108,61,184,0.4)', 'rgba(155,77,202,0.4)'] as const,
+  card: ['rgba(30, 25, 60, 0.8)', 'rgba(45, 35, 75, 0.6)'] as const,
+  glass: ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.04)'] as const,
+  streakBanner: ['#FF8C42', '#FF6B6B', '#E86A9E'] as const,
+};
+
+// ─── Typography ───────────────────────────────────────
+export const Typography = {
+  heading: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    color: Colors.textPrimary,
   },
-  dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+  headingItalic: {
+    fontFamily: 'PlayfairDisplay_700Bold_Italic',
+    color: Colors.textPrimary,
+  },
+  body: {
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textPrimary,
+  },
+  bodyMedium: {
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textPrimary,
+  },
+  bodySemiBold: {
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.textPrimary,
+  },
+  caption: {
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    fontSize: ms(13),
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+// ─── Spacing & Layout ─────────────────────────────────
+export const Spacing = {
+  xs: s(4),
+  sm: s(8),
+  md: s(16),
+  lg: s(24),
+  xl: s(32),
+  xxl: s(48),
+  xxxl: s(64),
+};
+
+export const Radius = {
+  sm: ms(8),
+  md: ms(16),
+  lg: ms(20),
+  xl: ms(24),
+  xxl: ms(32),
+  full: 999,
+};
+
+// ─── Shadows ──────────────────────────────────────────
+export const Shadows = {
+  soft: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  glow: {
+    shadowColor: '#9B4DCA',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  glowPink: {
+    shadowColor: Colors.softPink,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
-});
+};
