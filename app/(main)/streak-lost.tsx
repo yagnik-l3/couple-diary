@@ -2,6 +2,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -11,6 +12,7 @@ const { width } = Dimensions.get('window');
 
 export default function StreakLostScreen() {
     const router = useRouter();
+    const { state } = useAppState();
 
     return (
         <GradientBackground variant="full">
@@ -41,18 +43,18 @@ export default function StreakLostScreen() {
                 {/* Stats */}
                 <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.statsCard}>
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>12</Text>
-                        <Text style={styles.statLabel}>Day Streak</Text>
+                        <Text style={styles.statValue}>{state.bestStreak || 0}</Text>
+                        <Text style={styles.statLabel}>Best Streak</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>12</Text>
+                        <Text style={styles.statValue}>{state.questionsAnswered || 0}</Text>
                         <Text style={styles.statLabel}>Questions</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>24</Text>
-                        <Text style={styles.statLabel}>Answers</Text>
+                        <Text style={styles.statValue}>{state.streakCount || 0}</Text>
+                        <Text style={styles.statLabel}>Current</Text>
                     </View>
                 </Animated.View>
 

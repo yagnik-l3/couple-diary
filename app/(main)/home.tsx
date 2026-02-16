@@ -6,11 +6,12 @@ import StarBackground from '@/components/StarBackground';
 import StreakBadge from '@/components/StreakBadge';
 import { getLevelForStreak, getStreakProgress } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
 import { ms } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
     Pressable,
@@ -36,17 +37,60 @@ const MENU_ITEMS = [
     { id: 'timeline', icon: '📜', label: 'Timeline', route: '/(main)/timeline' },
     { id: 'levels', icon: '🗺️', label: 'Levels', route: '/(main)/levels' },
     { id: 'notifications', icon: '🔔', label: 'Notifications', route: '/(main)/notifications' },
-    { id: 'profile', icon: '👤', label: 'Profile', route: '/(main)/profile' },
+    // { id: 'profile', icon: '👤', label: 'Profile', route: '/(main)/profile' },
     { id: 'settings', icon: '⚙️', label: 'Settings', route: '/(main)/settings' },
 ] as const;
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { state } = useAppState();
+    const { state, update } = useAppState();
     const [menuOpen, setMenuOpen] = useState(false);
+    const [ctaState, setCtaState] = useState<'answer' | 'waiting' | 'reveal' | 'done'>('answer');
+    const [dailyId, setDailyId] = useState('');
 
     const currentLevel = getLevelForStreak(state.streakCount);
     const progress = getStreakProgress(state.streakCount);
+
+    // Check today's answer status on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                // Refresh profile/couple data to get latest streak and partner info
+                const profile = await (await import('@/utils/supabase')).getProfile();
+                if (profile) {
+                    update({
+                        streakCount: profile.streak_count,
+                        bestStreak: profile.best_streak,
+                        partnerName: profile.partner_name,
+                        userFirstName: profile.first_name || profile.name,
+                        userLastName: profile.last_name || '',
+                        userEmail: profile.email || '',
+                        userGender: profile.gender || '',
+                        userBirthDate: profile.birth_date || '',
+                        relationshipDate: profile.relationship_date || '',
+                        topicPreferences: profile.topic_preferences || [],
+                        lives: profile.lives || 1,
+                        hasPartner: !!profile.couple_id,
+                        questionsAnswered: profile.questions_answered || 0,
+                    });
+                }
+
+                const q = await QuestionService.getTodayQuestion();
+                setDailyId(q.daily_id);
+                const status = await QuestionService.getAnswerStatus(q.daily_id);
+                if (status.hasAnswered && status.partnerAnswered) {
+                    setCtaState('reveal');
+                } else if (status.hasAnswered) {
+                    setCtaState('waiting');
+                } else {
+                    setCtaState('answer');
+                }
+            } catch (err) {
+                console.error('Home load error:', err);
+                setCtaState('answer');
+            }
+        })();
+    }, []);
 
     // Animated menu scale
     const menuScale = useSharedValue(0);
@@ -98,7 +142,7 @@ export default function HomeScreen() {
                         <AvatarMerge size={44} />
                         <View style={styles.topInfo}>
                             <Text style={styles.coupleNames} numberOfLines={1}>
-                                {state.userName || 'You'} & {state.partnerName || 'Love'}
+                                {state.userFirstName || 'You'} & {state.partnerName || 'Love'}
                             </Text>
                             <Text style={styles.levelLabel}>
                                 {currentLevel.icon} {currentLevel.title}
@@ -110,8 +154,8 @@ export default function HomeScreen() {
 
                 {/* Center Galaxy */}
                 <Animated.View entering={FadeIn.delay(500).duration(1200)} style={styles.galaxyContainer}>
-                    <GalaxySphere size={width * 0.6} streakCount={390} />
-                    {/* <GalaxySphere size={width * 0.6} streakCount={state.streakCount} /> */}
+                    {/* <GalaxySphere size={width * 0.6} streakCount={390} /> */}
+                    <GalaxySphere size={width * 0.6} streakCount={state.streakCount} />
                     <Text style={styles.galaxyLabel}>Day {state.streakCount} of Your Universe</Text>
                 </Animated.View>
 
@@ -156,8 +200,20 @@ export default function HomeScreen() {
                     </TouchableOpacity>
 
                     <GlowButton
-                        title="Today's Question ✨"
-                        onPress={() => router.push('/(main)/question')}
+                        title={
+                            ctaState === 'waiting' ? 'Waiting for Partner 💫' :
+                                ctaState === 'reveal' ? 'See Today\'s Reveal ✨' :
+                                    'Today\'s Question ✨'
+                        }
+                        onPress={() => {
+                            if (ctaState === 'waiting') {
+                                router.push({ pathname: '/(main)/waiting', params: { daily_id: dailyId } } as any);
+                            } else if (ctaState === 'reveal') {
+                                router.push({ pathname: '/(main)/reveal', params: { daily_id: dailyId } } as any);
+                            } else {
+                                router.push('/(main)/question');
+                            }
+                        }}
                         style={styles.ctaButton}
                     />
                 </Animated.View>

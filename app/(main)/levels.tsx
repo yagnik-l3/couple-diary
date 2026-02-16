@@ -1,9 +1,10 @@
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
-import { COUPLE_LEVELS, getLevelForStreak } from '@/constants/levels';
+import { COUPLE_LEVELS, getLevelForStreak, getNextLevel } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
@@ -18,7 +19,7 @@ import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 const NODE_SIZE = ms(56);
-const PATH_WIDTH = width - Spacing.lg * 2;
+const PATH_WIDTH = ms(600); // Fixed large width for consistent journey feel
 
 /**
  * Generate a zigzag X position for each level node.
@@ -26,19 +27,23 @@ const PATH_WIDTH = width - Spacing.lg * 2;
  * creating a winding Candy Crush-style path.
  */
 function getNodeX(index: number): number {
+    const minPadding = Spacing.lg;
+    const maxContentWidth = PATH_WIDTH - ms(180); // Reserve space for label + padding
+
     const positions = [
-        PATH_WIDTH * 0.2,     // left
-        PATH_WIDTH * 0.5,     // center
-        PATH_WIDTH * 0.8,     // right
-        PATH_WIDTH * 0.5,     // center
+        minPadding,
+        (maxContentWidth * 0.4),
+        (maxContentWidth * 0.8),
+        (maxContentWidth * 0.4),
     ];
-    return positions[index % positions.length] - NODE_SIZE / 2;
+    return positions[index % positions.length];
 }
 
 export default function LevelsScreen() {
     const router = useRouter();
     const { state } = useAppState();
     const currentLevel = getLevelForStreak(state.streakCount);
+    const nextLevel = getNextLevel(state.streakCount);
 
     // Reversed so the current/lowest level is at the bottom
     const levels = [...COUPLE_LEVELS].reverse();
@@ -57,14 +62,36 @@ export default function LevelsScreen() {
                 </View>
 
                 {/* Current level badge */}
-                <Animated.View entering={FadeIn.duration(500)} style={styles.currentBadge}>
-                    <Text style={styles.currentIcon}>{currentLevel.icon}</Text>
-                    <View>
-                        <Text style={styles.currentTitle}>{currentLevel.title}</Text>
-                        <Text style={styles.currentSub}>
-                            Day {state.streakCount} · {currentLevel.description}
-                        </Text>
-                    </View>
+                <Animated.View entering={FadeIn.duration(500)} style={styles.currentBadgeContainer}>
+                    <LinearGradient
+                        colors={[Colors.white12, Colors.white05]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.currentBadgeGradient}
+                    >
+                        <Text style={styles.currentIcon}>{currentLevel.icon}</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.currentTitle}>{currentLevel.title}</Text>
+                            <Text style={styles.currentSub}>
+                                Day {state.streakCount} · {currentLevel.description}
+                            </Text>
+                            {nextLevel && (
+                                <View style={styles.progressContainer}>
+                                    <View style={styles.progressBar}>
+                                        <View
+                                            style={[
+                                                styles.progressFill,
+                                                { width: `${Math.min(100, (state.streakCount / nextLevel.minStreak) * 100)}%` }
+                                            ]}
+                                        />
+                                    </View>
+                                    <Text style={styles.progressText}>
+                                        {nextLevel.minStreak - state.streakCount} days until {nextLevel.title}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </LinearGradient>
                 </Animated.View>
 
                 {/* Scrollable path — bottom-up */}
@@ -72,85 +99,91 @@ export default function LevelsScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <View style={styles.pathContainer}>
-                        {levels.map((level, index) => {
-                            const originalIndex = COUPLE_LEVELS.length - 1 - index;
-                            const isUnlocked = state.streakCount >= level.minStreak;
-                            const isCurrent = level.level === currentLevel.level;
-                            const nodeX = getNodeX(index);
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.horizontalScrollContent}
+                        bounces={true}
+                        nestedScrollEnabled={true}
+                    >
+                        <View style={[styles.pathContainer, { width: PATH_WIDTH }]}>
+                            {levels.map((level, index) => {
+                                const isUnlocked = state.streakCount >= level.minStreak;
+                                const isCurrent = level.level === currentLevel.level;
+                                const nodeX = getNodeX(index);
 
-                            // Draw connector to next node
-                            const showConnector = index < levels.length - 1;
-                            const nextX = getNodeX(index + 1);
+                                // Connector to NEXT node (the one below)
+                                const showConnector = index < levels.length - 1;
+                                const nextX = getNodeX(index + 1);
 
-                            return (
-                                <Animated.View
-                                    key={level.level}
-                                    entering={FadeInUp.delay(index * 120).duration(500)}
-                                >
-                                    {/* Connector line */}
-                                    {showConnector && (
-                                        <View
-                                            style={[
-                                                styles.connector,
-                                                {
-                                                    left: Math.min(nodeX, nextX) + NODE_SIZE / 2,
-                                                    width: Math.abs(nextX - nodeX) + 2,
-                                                    transform: [{
-                                                        rotate: nextX > nodeX ? '30deg' : '-30deg',
-                                                    }],
-                                                },
-                                                isUnlocked && styles.connectorUnlocked,
-                                            ]}
-                                        />
-                                    )}
+                                const vDist = vs(50) + NODE_SIZE;
+                                const dx = nextX - nodeX;
+                                const distance = Math.sqrt(dx * dx + vDist * vDist);
+                                const angle = Math.atan2(vDist, dx);
 
-                                    {/* Node */}
-                                    <View style={[styles.nodeRow, { marginLeft: nodeX }]}>
-                                        <View
-                                            style={[
-                                                styles.node,
-                                                { borderColor: level.color },
-                                                isUnlocked && {
-                                                    backgroundColor: level.color + '30',
-                                                    ...Shadows.glow,
-                                                    shadowColor: level.color,
-                                                },
-                                                isCurrent && styles.nodeCurrent,
-                                                !isUnlocked && styles.nodeLocked,
-                                            ]}
-                                        >
-                                            <Text style={[
-                                                styles.nodeIcon,
-                                                !isUnlocked && styles.nodeLocked,
-                                            ]}>
-                                                {isUnlocked ? level.icon : '🔒'}
-                                            </Text>
+                                return (
+                                    <Animated.View
+                                        key={level.level}
+                                        entering={FadeInUp.delay(index * 120).duration(500)}
+                                        style={{ zIndex: levels.length - index }}
+                                    >
+                                        {/* Connector line - Handled with midpoint rotation since transformOrigin is finicky across RN platforms */}
+                                        {showConnector && (
+                                            <View
+                                                style={[
+                                                    styles.connector,
+                                                    {
+                                                        width: distance,
+                                                        left: (nodeX + nextX + NODE_SIZE) / 2 - distance / 2,
+                                                        top: NODE_SIZE + vs(50) / 2,
+                                                        transform: [{ rotate: `${angle}rad` }],
+                                                    },
+                                                    isUnlocked && (state.streakCount >= (levels[index + 1]?.minStreak || 0)) && styles.connectorUnlocked,
+                                                ]}
+                                            />
+                                        )}
+
+                                        {/* Node Row */}
+                                        <View style={[styles.nodeRow, { marginLeft: nodeX }]}>
+                                            <View
+                                                style={[
+                                                    styles.node,
+                                                    { borderColor: level.color },
+                                                    isUnlocked && {
+                                                        backgroundColor: level.color + '20',
+                                                        ...Shadows.glow,
+                                                        shadowColor: level.color,
+                                                    },
+                                                    isCurrent && styles.nodeCurrent,
+                                                    !isUnlocked && styles.nodeLocked,
+                                                ]}
+                                            >
+                                                <Text style={styles.nodeIcon}>
+                                                    {isUnlocked ? level.icon : '🔒'}
+                                                </Text>
+                                                {isCurrent && <View style={[styles.pulse, { backgroundColor: level.color }]} />}
+                                            </View>
+
+                                            <View style={styles.nodeLabel}>
+                                                <Text style={[
+                                                    styles.nodeName,
+                                                    isUnlocked && { color: level.color },
+                                                    !isUnlocked && styles.nodeNameLocked,
+                                                ]}>
+                                                    {level.title}
+                                                </Text>
+                                                <Text style={styles.nodeStreak}>
+                                                    {level.minStreak === 0 ? 'Start' : `Day ${level.minStreak}+`}
+                                                </Text>
+                                            </View>
                                         </View>
 
-                                        {/* Label */}
-                                        <View style={styles.nodeLabel}>
-                                            <Text style={[
-                                                styles.nodeName,
-                                                isUnlocked && { color: level.color },
-                                                !isUnlocked && styles.nodeNameLocked,
-                                            ]}>
-                                                {level.title}
-                                            </Text>
-                                            <Text style={styles.nodeStreak}>
-                                                {level.minStreak === 0
-                                                    ? 'Start'
-                                                    : `Day ${level.minStreak}+`}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    {/* Spacer between nodes */}
-                                    <View style={{ height: vs(50) }} />
-                                </Animated.View>
-                            );
-                        })}
-                    </View>
+                                        <View style={{ height: vs(50) }} />
+                                    </Animated.View>
+                                );
+                            })}
+                        </View>
+                    </ScrollView>
                 </ScrollView>
             </View>
         </GradientBackground>
@@ -180,17 +213,20 @@ const styles = StyleSheet.create({
     },
 
     // ─── Current Badge ───────────────────────────────
-    currentBadge: {
+    currentBadgeContainer: {
+        marginHorizontal: Spacing.lg,
+        marginBottom: Spacing.lg,
+        borderRadius: Radius.xl,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: Colors.glassBorder,
+        ...Shadows.soft,
+    },
+    currentBadgeGradient: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.md,
-        marginHorizontal: Spacing.lg,
-        backgroundColor: Colors.white08,
-        borderRadius: Radius.xl,
         padding: Spacing.md,
-        marginBottom: Spacing.lg,
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
     },
     currentIcon: {
         fontSize: ms(32),
@@ -209,9 +245,11 @@ const styles = StyleSheet.create({
 
     // ─── Path ────────────────────────────────────────
     scrollContent: {
-        paddingHorizontal: Spacing.lg,
         paddingTop: Spacing.md,
         paddingBottom: vs(80),
+    },
+    horizontalScrollContent: {
+        paddingHorizontal: Spacing.lg,
     },
     pathContainer: {
         position: 'relative',
@@ -223,11 +261,31 @@ const styles = StyleSheet.create({
         height: 3,
         backgroundColor: Colors.white08,
         borderRadius: 2,
-        top: NODE_SIZE / 2,
         zIndex: 0,
     },
     connectorUnlocked: {
-        backgroundColor: Colors.white30,
+        backgroundColor: Colors.softPink + '60',
+    },
+
+    // ─── Progress ────────────────────────────────────
+    progressContainer: {
+        marginTop: Spacing.sm,
+        gap: 4,
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: Colors.white08,
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        backgroundColor: Colors.softPink,
+    },
+    progressText: {
+        ...Typography.caption,
+        fontSize: ms(10),
+        color: Colors.textSecondary,
     },
 
     // ─── Node ────────────────────────────────────────
@@ -247,13 +305,23 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.cardBg,
     },
     nodeCurrent: {
-        transform: [{ scale: 1.15 }],
+        transform: [{ scale: 1.2 }],
+        borderWidth: 3,
     },
     nodeLocked: {
-        opacity: 0.4,
+        opacity: 0.5,
+        borderStyle: 'dashed',
     },
     nodeIcon: {
         fontSize: ms(24),
+    },
+    pulse: {
+        position: 'absolute',
+        width: NODE_SIZE + 10,
+        height: NODE_SIZE + 10,
+        borderRadius: (NODE_SIZE + 10) / 2,
+        opacity: 0.2,
+        zIndex: -1,
     },
 
     // ─── Label ───────────────────────────────────────

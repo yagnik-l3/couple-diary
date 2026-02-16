@@ -1,6 +1,7 @@
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Spacing, Typography } from '@/constants/theme';
+import { getProfile, getSession } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
@@ -30,10 +31,30 @@ export default function SplashScreen() {
         taglineOpacity.value = withDelay(800, withTiming(1, { duration: 1000 }));
         taglineTranslateY.value = withDelay(800, withTiming(0, { duration: 1000, easing: Easing.out(Easing.ease) }));
 
-        // Navigate after delay
-        const timer = setTimeout(() => {
-            router.replace('/onboarding');
-        }, 3500);
+        // Check auth state and navigate
+        const timer = setTimeout(async () => {
+            try {
+                const session = await getSession();
+                if (!session) {
+                    // Not logged in → onboarding (intro + auth)
+                    router.replace('/onboarding');
+                    return;
+                }
+
+                // Logged in — check if profile exists
+                const profile = await getProfile();
+                if (!profile) {
+                    // Has auth but no profile → needs onboarding
+                    router.replace('/onboarding');
+                } else {
+                    // Fully set up → home
+                    router.replace('/(main)/home');
+                }
+            } catch {
+                // On error, send to login
+                router.replace('/login');
+            }
+        }, 2500);
 
         return () => clearTimeout(timer);
     }, []);

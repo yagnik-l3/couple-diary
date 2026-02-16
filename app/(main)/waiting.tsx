@@ -3,9 +3,10 @@ import GradientBackground from '@/components/GradientBackground';
 import OutlineButton from '@/components/OutlineButton';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -25,6 +26,7 @@ const { width } = Dimensions.get('window');
 
 export default function WaitingScreen() {
     const router = useRouter();
+    const { daily_id } = useLocalSearchParams<{ daily_id: string }>();
     const { state, update } = useAppState();
     const orbit1 = useSharedValue(0);
     const orbit2 = useSharedValue(0);
@@ -33,6 +35,36 @@ export default function WaitingScreen() {
 
     const [nudgeSent, setNudgeSent] = useState(false);
     const [cooldownRemaining, setCooldownRemaining] = useState(0);
+    const [partnerAnswered, setPartnerAnswered] = useState(false);
+
+    // ─── Poll for partner answer ──────────────────────
+    useEffect(() => {
+        if (!daily_id) return;
+
+        const poll = async () => {
+            try {
+                const status = await QuestionService.getAnswerStatus(daily_id);
+                if (status.partnerAnswered) {
+                    setPartnerAnswered(true);
+                }
+            } catch (err) {
+                console.warn('Poll error:', err);
+            }
+        };
+
+        poll(); // immediate check
+        const interval = setInterval(poll, 5000);
+        return () => clearInterval(interval);
+    }, [daily_id]);
+
+    // Auto-navigate to reveal when partner answers
+    useEffect(() => {
+        if (partnerAnswered && daily_id) {
+            setTimeout(() => {
+                router.replace({ pathname: '/(main)/reveal', params: { daily_id } } as any);
+            }, 1500);
+        }
+    }, [partnerAnswered]);
 
     // ─── Cooldown Timer ───────────────────────────────
     const getCooldownMs = useCallback(() => {
@@ -117,7 +149,7 @@ export default function WaitingScreen() {
 
                     {/* Lock icon center */}
                     <Animated.View style={[styles.lockGlow, lockGlowStyle]} />
-                    <Text style={styles.lockIcon}>🔒</Text>
+                    <Text style={styles.lockIcon}>{partnerAnswered ? '🔓' : '🔒'}</Text>
 
                     {/* Orbiting planets */}
                     <Animated.View style={[styles.planet, planet1Style]}>
@@ -130,10 +162,15 @@ export default function WaitingScreen() {
 
                 {/* Text */}
                 <Animated.View entering={FadeInUp.delay(600).duration(800)} style={styles.textSection}>
-                    <Text style={styles.title}>Waiting for your{'\n'}partner's answer</Text>
+                    <Text style={styles.title}>
+                        {partnerAnswered
+                            ? "Both answers are in!\nHeading to reveal..."
+                            : "Waiting for your\npartner's answer"}
+                    </Text>
                     <Text style={styles.subtitle}>
-                        The universe holds its breath...{'\n'}
-                        Both answers are needed for the reveal ✨
+                        {partnerAnswered
+                            ? 'The stars are aligning ✨'
+                            : 'The universe holds its breath...\nBoth answers are needed for the reveal ✨'}
                     </Text>
                 </Animated.View>
 
@@ -146,21 +183,25 @@ export default function WaitingScreen() {
                     </View>
                     <View style={styles.statusDivider} />
                     <View style={styles.statusRow}>
-                        <View style={styles.statusDotWaiting} />
+                        <View style={partnerAnswered ? styles.statusDot : styles.statusDotWaiting} />
                         <Text style={styles.statusText}>Partner</Text>
-                        <Text style={styles.statusWaiting}>waiting...</Text>
+                        <Text style={partnerAnswered ? styles.statusCheck : styles.statusWaiting}>
+                            {partnerAnswered ? '✓' : 'waiting...'}
+                        </Text>
                     </View>
                 </Animated.View>
 
                 {/* Nudge Button */}
-                <Animated.View entering={FadeInUp.delay(1100).duration(600)} style={[nudgeBtnStyle, styles.nudgeContainer]}>
-                    <OutlineButton
-                        title={isOnCooldown ? `Nudge again in ${cooldownMinutes}m` : 'Nudge Partner 💌'}
-                        onPress={handleNudge}
-                        disabled={isOnCooldown}
-                        style={styles.nudgeButton}
-                    />
-                </Animated.View>
+                {!partnerAnswered && (
+                    <Animated.View entering={FadeInUp.delay(1100).duration(600)} style={[nudgeBtnStyle, styles.nudgeContainer]}>
+                        <OutlineButton
+                            title={isOnCooldown ? `Nudge again in ${cooldownMinutes}m` : 'Nudge Partner 💌'}
+                            onPress={handleNudge}
+                            disabled={isOnCooldown}
+                            style={styles.nudgeButton}
+                        />
+                    </Animated.View>
+                )}
 
                 {/* Nudge Sent Toast */}
                 {nudgeSent && (
@@ -173,12 +214,22 @@ export default function WaitingScreen() {
                     </Animated.View>
                 )}
 
-                <GlowButton
-                    title="View Reveal 💫"
-                    onPress={() => router.push('/(main)/reveal')}
-                    disabled={false}
-                    style={styles.revealButton}
-                />
+                {partnerAnswered && (
+                    <GlowButton
+                        title="View Reveal 💫"
+                        onPress={() => router.replace({ pathname: '/(main)/reveal', params: { daily_id } } as any)}
+                        style={styles.revealButton}
+                    />
+                )}
+
+                {/* Back Button */}
+                <Animated.View entering={FadeInUp.delay(1300).duration(600)} style={styles.revealButton}>
+                    <OutlineButton
+                        title="Back to Home"
+                        onPress={() => router.replace('/(main)/home')}
+                        style={styles.revealButton}
+                    />
+                </Animated.View>
             </View>
         </GradientBackground>
     );
@@ -302,9 +353,6 @@ const styles = StyleSheet.create({
     },
     nudgeButton: {
         width: '100%',
-    },
-    nudgeDisabled: {
-        opacity: 0.5,
     },
     nudgeToast: {
         position: 'absolute',

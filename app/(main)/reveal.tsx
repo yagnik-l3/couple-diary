@@ -3,21 +3,84 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Gradients, Radius, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
+import { incrementStreak } from '@/utils/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
-const MOCK_MY_ANSWER = "When they leave little notes around the house for me to find. It always brightens my entire day.";
-const MOCK_PARTNER_ANSWER = "The way they hum while cooking dinner. It makes the whole kitchen feel warm and full of love.";
-
 export default function RevealScreen() {
     const router = useRouter();
-    const { state } = useAppState();
+    const { daily_id } = useLocalSearchParams<{ daily_id: string }>();
+    const { state, update } = useAppState();
+    const [loading, setLoading] = useState(true);
+    const [questionText, setQuestionText] = useState('');
+    const [myAnswer, setMyAnswer] = useState('');
+    const [partnerAnswer, setPartnerAnswer] = useState('');
+    const [partnerName, setPartnerName] = useState('Partner');
+    const [streakUpdated, setStreakUpdated] = useState(false);
+
+    useEffect(() => {
+        if (!daily_id) return;
+
+        (async () => {
+            try {
+                // Fetch the question text
+                const q = await QuestionService.getTodayQuestion();
+                setQuestionText(q.text);
+
+                // Fetch both answers
+                const answers = await QuestionService.getRevealAnswers(daily_id);
+                const { data: { user } } = await (await import('@/utils/supabase')).supabase.auth.getUser();
+
+                for (const ans of answers) {
+                    if (ans.user_id === user?.id) {
+                        setMyAnswer(ans.content);
+                    } else {
+                        setPartnerAnswer(ans.content);
+                        setPartnerName((ans as any).profile?.first_name || 'Partner');
+                    }
+                }
+
+                // Increment streak (only once per question — deduped by daily_id)
+                if (!streakUpdated) {
+                    try {
+                        const coupleData = await incrementStreak(daily_id);
+                        update({
+                            streakCount: coupleData.streak_count,
+                            bestStreak: coupleData.best_streak,
+                            hasAnsweredToday: true,
+                            partnerAnsweredToday: true,
+                        });
+                        setStreakUpdated(true);
+                    } catch (err) {
+                        console.warn('Streak update note:', err);
+                    }
+                }
+            } catch (err) {
+                console.error('Reveal load error:', err);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, [daily_id]);
+
+    if (loading) {
+        return (
+            <GradientBackground variant="full">
+                <StarBackground />
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={Colors.softPink} />
+                    <Text style={styles.loadingText}>Preparing the reveal...</Text>
+                </View>
+            </GradientBackground>
+        );
+    }
 
     return (
         <GradientBackground variant="full">
@@ -43,7 +106,7 @@ export default function RevealScreen() {
                 {/* Question recap */}
                 <Animated.View entering={FadeIn.delay(600).duration(600)}>
                     <Text style={styles.questionRecap}>
-                        "What's one small thing your partner does that always makes you smile?"
+                        "{questionText}"
                     </Text>
                 </Animated.View>
 
@@ -54,7 +117,7 @@ export default function RevealScreen() {
                             <View style={[styles.cardDot, { backgroundColor: Colors.lavender }]} />
                             <Text style={styles.cardLabel}>You Said</Text>
                         </View>
-                        <Text style={styles.answerText}>{MOCK_MY_ANSWER}</Text>
+                        <Text style={styles.answerText}>{myAnswer}</Text>
                     </GlassCard>
                 </Animated.View>
 
@@ -62,9 +125,9 @@ export default function RevealScreen() {
                     <GlassCard style={styles.answerCard}>
                         <View style={styles.cardHeader}>
                             <View style={[styles.cardDot, { backgroundColor: Colors.softPink }]} />
-                            <Text style={styles.cardLabel}>Partner Said</Text>
+                            <Text style={styles.cardLabel}>{partnerName} Said</Text>
                         </View>
-                        <Text style={styles.answerText}>{MOCK_PARTNER_ANSWER}</Text>
+                        <Text style={styles.answerText}>{partnerAnswer}</Text>
                     </GlassCard>
                 </Animated.View>
 
@@ -102,12 +165,22 @@ export default function RevealScreen() {
 const styles = StyleSheet.create({
     scrollContent: {
         paddingHorizontal: Spacing.lg,
-        paddingTop: 70,
+        paddingTop: 130,
         paddingBottom: 40,
+    },
+    centered: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loadingText: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        marginTop: Spacing.md,
     },
     burstContainer: {
         position: 'absolute',
-        top: 0,
+        top: 60,
         left: 0,
         right: 0,
         height: 60,
@@ -141,6 +214,10 @@ const styles = StyleSheet.create({
     },
     answerCard: {
         padding: Spacing.lg,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -191,6 +268,10 @@ const styles = StyleSheet.create({
     },
     continueButton: {
         width: '100%',
+    },
+    backButton: {
+        width: '100%',
+        marginTop: Spacing.md,
     },
     bottomSpacer: {
         height: 20,

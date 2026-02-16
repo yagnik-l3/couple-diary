@@ -20,7 +20,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 // ─── Helpers ──────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -40,7 +40,9 @@ export default function JournalScreen() {
     const [selectedDate, setSelectedDate] = useState(today);
     const [content, setContent] = useState('');
     const [allDates, setAllDates] = useState<Set<string>>(new Set());
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isToday = selectedDate === today;
 
@@ -57,20 +59,26 @@ export default function JournalScreen() {
         (async () => {
             const entry = await getEntry(selectedDate);
             setContent(entry?.content || '');
+            setSaveStatus('idle');
         })();
     }, [selectedDate]);
 
-    // Auto-save with debounce
+    // Auto-save with 3s debounce
     const handleChange = useCallback(
         (text: string) => {
             setContent(text);
+            setSaveStatus('idle');
             if (saveTimeout.current) clearTimeout(saveTimeout.current);
+            if (savedTimeout.current) clearTimeout(savedTimeout.current);
             saveTimeout.current = setTimeout(async () => {
+                setSaveStatus('saving');
                 await saveEntry(selectedDate, text);
                 // Update dots
                 const all = await getAllEntries();
                 setAllDates(new Set(all.map(e => e.date)));
-            }, 800);
+                setSaveStatus('saved');
+                savedTimeout.current = setTimeout(() => setSaveStatus('idle'), 2000);
+            }, 3000);
         },
         [selectedDate],
     );
@@ -78,9 +86,13 @@ export default function JournalScreen() {
     // Save on blur immediately
     const handleBlur = useCallback(async () => {
         if (saveTimeout.current) clearTimeout(saveTimeout.current);
+        if (savedTimeout.current) clearTimeout(savedTimeout.current);
+        setSaveStatus('saving');
         await saveEntry(selectedDate, content);
         const all = await getAllEntries();
         setAllDates(new Set(all.map(e => e.date)));
+        setSaveStatus('saved');
+        savedTimeout.current = setTimeout(() => setSaveStatus('idle'), 2000);
     }, [selectedDate, content]);
 
     return (
@@ -107,11 +119,21 @@ export default function JournalScreen() {
                         markedDates={allDates}
                     />
 
-                    {/* Date label */}
+                    {/* Date label + Save indicator */}
                     <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.dateRow}>
                         <Text style={styles.dateLabel}>
                             {isToday ? '✨ Today' : formatDate(selectedDate)}
                         </Text>
+                        {saveStatus === 'saving' && (
+                            <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)}>
+                                <Text style={styles.savingText}>Saving...</Text>
+                            </Animated.View>
+                        )}
+                        {saveStatus === 'saved' && (
+                            <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(200)}>
+                                <Text style={styles.savedText}>✓ Saved</Text>
+                            </Animated.View>
+                        )}
                     </Animated.View>
 
                     {/* Direct text input — fills remaining space */}
@@ -162,6 +184,9 @@ const styles = StyleSheet.create({
     },
     placeholder: { width: 50 },
     dateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: Spacing.lg,
         marginBottom: Spacing.sm,
     },
@@ -169,6 +194,17 @@ const styles = StyleSheet.create({
         ...Typography.bodySemiBold,
         fontSize: ms(14),
         color: Colors.goldSparkle,
+    },
+    savingText: {
+        ...Typography.body,
+        fontSize: ms(12),
+        color: Colors.textMuted,
+        fontStyle: 'italic',
+    },
+    savedText: {
+        ...Typography.bodySemiBold,
+        fontSize: ms(12),
+        color: '#5CE05C',
     },
     inputContainer: {
         flexGrow: 1,

@@ -4,14 +4,16 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 // ─── Types ────────────────────────────────────────────
 export interface AppState {
     // User
-    userName: string;
+    userFirstName: string;
+    userLastName: string;
     userGender: 'male' | 'female' | 'non-binary' | 'prefer-not' | '';
     userEmail: string;
     relationshipDate: string; // ISO string
+    userBirthDate: string; // ISO string
 
     // Partner
     hasPartner: boolean;
-    partnerName: string;
+    partnerName: string; // Keep partnerName as is for now, or split if needed (plan said focus on user)
 
     // Streak & Levels
     streakCount: number;
@@ -36,10 +38,12 @@ export interface AppState {
 }
 
 const DEFAULT_STATE: AppState = {
-    userName: '',
+    userFirstName: '',
+    userLastName: '',
     userGender: '',
     userEmail: '',
     relationshipDate: '',
+    userBirthDate: '',
     hasPartner: false,
     partnerName: '',
     streakCount: 0,
@@ -53,20 +57,6 @@ const DEFAULT_STATE: AppState = {
     hasCompletedOnboarding: false,
     hasAnsweredToday: false,
     partnerAnsweredToday: false,
-};
-
-// For demo purposes, we can have a "loaded" mock state
-const DEMO_STATE: Partial<AppState> = {
-    userName: 'You',
-    hasPartner: true,
-    partnerName: 'Your Love',
-    streakCount: 12,
-    bestStreak: 12,
-    questionsAnswered: 12,
-    lives: 1,
-    hasCompletedOnboarding: true,
-    topicPreferences: ['Love Languages', 'Dreams', 'Deep Talk'],
-    relationshipDate: '2025-12-01',
 };
 
 const STORAGE_KEY = '@couple_diary_state';
@@ -92,7 +82,7 @@ export function useAppState() {
 
 // ─── Provider ─────────────────────────────────────────
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-    const [state, setState] = useState<AppState>({ ...DEFAULT_STATE, ...DEMO_STATE });
+    const [state, setState] = useState<AppState>({ ...DEFAULT_STATE });
     const [loaded, setLoaded] = useState(false);
 
     // Load from AsyncStorage

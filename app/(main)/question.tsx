@@ -3,9 +3,12 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
+import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -13,15 +16,70 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
-const MOCK_QUESTION = "What's one small thing your partner does that always makes you smile?";
-
 export default function QuestionScreen() {
     const router = useRouter();
+    const { state } = useAppState();
     const [answer, setAnswer] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [question, setQuestion] = useState<{ text: string; category: string; daily_id: string } | null>(null);
+    const [error, setError] = useState('');
+
+    // Fetch today's question on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const q = await QuestionService.getTodayQuestion();
+                setQuestion({ text: q.text, category: q.category, daily_id: q.daily_id });
+            } catch (err: any) {
+                setError(err.message || 'Failed to load question');
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
+    const handleSubmit = async () => {
+        if (!answer.trim() || !question) return;
+        setSubmitting(true);
+        try {
+            await QuestionService.submitAnswer(question.daily_id, answer);
+            router.replace({ pathname: '/(main)/waiting', params: { daily_id: question.daily_id } } as any);
+        } catch (err: any) {
+            alert(err.message || 'Failed to submit');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <GradientBackground variant="full">
+                <StarBackground />
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color={Colors.softPink} />
+                    <Text style={styles.loadingText}>Loading today's question...</Text>
+                </View>
+            </GradientBackground>
+        );
+    }
+
+    if (error) {
+        return (
+            <GradientBackground variant="full">
+                <StarBackground />
+                <View style={styles.centered}>
+                    <Text style={styles.errorEmoji}>😕</Text>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <GlowButton title="Invite Your Partner" onPress={() => router.push('/(main)/invite')} style={{ marginTop: Spacing.lg }} />
+                </View>
+            </GradientBackground>
+        );
+    }
 
     return (
         <GradientBackground variant="full">
@@ -42,16 +100,16 @@ export default function QuestionScreen() {
                     {/* Category Tag */}
                     <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.tagRow}>
                         <View style={styles.tag}>
-                            <Text style={styles.tagText}>💭 Daily Question</Text>
+                            <Text style={styles.tagText}>💭 {question?.category || 'Daily Question'}</Text>
                         </View>
-                        <Text style={styles.dayText}>Day 12</Text>
+                        <Text style={styles.dayText}>Day {state.streakCount}</Text>
                     </Animated.View>
 
                     {/* Question Card */}
                     <Animated.View entering={FadeInUp.delay(400).duration(800)}>
                         <FloatingCard style={styles.questionCard}>
                             <Text style={styles.questionMark}>"</Text>
-                            <Text style={styles.questionText}>{MOCK_QUESTION}</Text>
+                            <Text style={styles.questionText}>{question?.text}</Text>
                             <Text style={styles.questionMarkEnd}>"</Text>
                         </FloatingCard>
                     </Animated.View>
@@ -69,14 +127,9 @@ export default function QuestionScreen() {
                                 multiline
                                 numberOfLines={5}
                                 textAlignVertical="top"
+                                maxLength={500}
                             />
                             <View style={styles.inputFooter}>
-                                <TouchableOpacity style={styles.emojiButton}>
-                                    <Text style={styles.emojiIcon}>😊</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={styles.voiceButton}>
-                                    <Text style={styles.voiceIcon}>🎤</Text>
-                                </TouchableOpacity>
                                 <Text style={styles.charCount}>{answer.length}/500</Text>
                             </View>
                         </View>
@@ -84,14 +137,15 @@ export default function QuestionScreen() {
 
                     <Animated.View entering={FadeInUp.delay(800).duration(600)}>
                         <GlowButton
-                            title="Send to Universe ✨"
-                            onPress={() => router.push('/(main)/waiting')}
-                            disabled={answer.trim().length === 0}
+                            title={submitting ? "Sending..." : "Send to Universe ✨"}
+                            onPress={handleSubmit}
+                            disabled={answer.trim().length === 0 || submitting}
                             style={styles.sendButton}
                         />
                     </Animated.View>
                 </ScrollView>
             </KeyboardAvoidingView>
+
         </GradientBackground>
     );
 }
@@ -103,6 +157,27 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         paddingTop: 60,
         paddingBottom: Spacing.xxl,
+    },
+    centered: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Spacing.xl,
+    },
+    loadingText: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        marginTop: Spacing.md,
+    },
+    errorEmoji: {
+        fontSize: 48,
+        marginBottom: Spacing.md,
+    },
+    errorText: {
+        ...Typography.body,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        fontSize: 15,
     },
     backButton: {
         marginBottom: Spacing.lg,
@@ -188,28 +263,14 @@ const styles = StyleSheet.create({
     inputFooter: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'flex-end',
         paddingHorizontal: Spacing.md,
         paddingBottom: Spacing.sm,
-        gap: Spacing.sm,
-    },
-    emojiButton: {
-        padding: 4,
-    },
-    emojiIcon: {
-        fontSize: 22,
-    },
-    voiceButton: {
-        padding: 4,
-    },
-    voiceIcon: {
-        fontSize: 20,
-        opacity: 0.5,
     },
     charCount: {
         ...Typography.caption,
         fontSize: 12,
         color: Colors.textMuted,
-        marginLeft: 'auto',
     },
     sendButton: {
         width: '100%',

@@ -4,7 +4,6 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
-import { useAppState } from '@/utils/store';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
@@ -13,25 +12,12 @@ import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 export default function ConnectedScreen() {
     const router = useRouter();
-    const { update } = useAppState();
     const params = useLocalSearchParams<{
         name: string;
-        email: string;
-        gender: string;
-        topics: string;
-        inviteCode: string;
     }>();
 
     const handleStartJourney = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        update({
-            userEmail: params.email || '',
-            userName: params.name || '',
-            userGender: (params.gender as any) || '',
-            topicPreferences: params.topics ? params.topics.split(',') : [],
-            hasCompletedOnboarding: true,
-            hasPartner: true,
-        });
         router.replace('/(main)/home');
     };
 

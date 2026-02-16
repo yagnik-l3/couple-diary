@@ -3,61 +3,30 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import WeekCalendar from '@/components/WeekCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
 import { ms, vs } from '@/utils/scale';
 import { useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
-// ─── Mock Data ────────────────────────────────────────
-const MOCK_MEMORIES = [
-    {
-        id: '1',
-        day: 12,
-        date: '2026-02-12',
-        question: "What's one small thing your partner does that always makes you smile?",
-        myAnswer: "When they leave little notes around the house.",
-        partnerAnswer: "The way they hum while cooking dinner.",
-    },
-    {
-        id: '2',
-        day: 11,
-        date: '2026-02-11',
-        question: "What moment from your first date do you remember most?",
-        myAnswer: "The way the sunset reflected in your eyes.",
-        partnerAnswer: "When we both ordered the same dish and laughed.",
-    },
-    {
-        id: '3',
-        day: 10,
-        date: '2026-02-10',
-        question: "If you could relive one day together, which would it be?",
-        myAnswer: "Our road trip to the mountains last summer.",
-        partnerAnswer: "The rainy day we spent cooking and dancing in the kitchen.",
-    },
-    {
-        id: '4',
-        day: 9,
-        date: '2026-02-09',
-        question: "What's a dream you want to achieve together?",
-        myAnswer: "Travel the world and see the Northern Lights.",
-        partnerAnswer: "Build a cozy home with a garden full of sunflowers.",
-    },
-    {
-        id: '5',
-        day: 8,
-        date: '2026-02-08',
-        question: "What song reminds you of your partner?",
-        myAnswer: "Can't Help Falling In Love – Elvis",
-        partnerAnswer: "Perfect – Ed Sheeran",
-    },
-];
+interface TimelineEntry {
+    id: string;
+    day: number;
+    date: string;
+    question: string;
+    category: string;
+    myAnswer: string;
+    partnerAnswer: string;
+    partnerName: string;
+}
 
 // ─── Helper ───────────────────────────────────────────
 function formatDate(dateStr: string): string {
@@ -73,20 +42,35 @@ function formatDate(dateStr: string): string {
 // ─── Screen ───────────────────────────────────────────
 export default function TimelineScreen() {
     const router = useRouter();
+    const [memories, setMemories] = useState<TimelineEntry[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
 
+    // Fetch real timeline data
+    useEffect(() => {
+        (async () => {
+            try {
+                const data = await QuestionService.getTimeline();
+                setMemories(data);
+            } catch (err) {
+                console.error('Timeline load error:', err);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
     const markedDates = useMemo(
-        () => new Set(MOCK_MEMORIES.map(m => m.date)),
-        [],
+        () => new Set(memories.map(m => m.date)),
+        [memories],
     );
 
-    // Get the memory for the selected date
     const selectedMemory = useMemo(
-        () => MOCK_MEMORIES.find(m => m.date === selectedDate),
-        [selectedDate],
+        () => memories.find(m => m.date === selectedDate),
+        [selectedDate, memories],
     );
 
     return (
@@ -115,7 +99,12 @@ export default function TimelineScreen() {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {selectedMemory ? (
+                    {loading ? (
+                        <View style={styles.emptyState}>
+                            <ActivityIndicator size="large" color={Colors.softPink} />
+                            <Text style={styles.emptyTitle}>Loading memories...</Text>
+                        </View>
+                    ) : selectedMemory ? (
                         <Animated.View entering={FadeInUp.duration(500)} key={selectedMemory.id}>
                             {/* Day badge */}
                             <View style={styles.dayRow}>
@@ -148,7 +137,7 @@ export default function TimelineScreen() {
                                 <FloatingCard style={styles.answerCard}>
                                     <View style={styles.answerHeader}>
                                         <View style={[styles.dot, { backgroundColor: Colors.softPink }]} />
-                                        <Text style={styles.answerLabel}>Partner's Answer</Text>
+                                        <Text style={styles.answerLabel}>{selectedMemory.partnerName}'s Answer</Text>
                                     </View>
                                     <Text style={styles.answerText}>{selectedMemory.partnerAnswer}</Text>
                                 </FloatingCard>

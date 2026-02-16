@@ -1,10 +1,10 @@
 import { Colors, Radius, Shadows, Spacing } from '@/constants/theme';
 import React from 'react';
-import { StyleSheet, View, ViewStyle } from 'react-native';
+import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 interface Props {
     children: React.ReactNode;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
 }
 
 export default function FloatingCard({ children, style }: Props) {

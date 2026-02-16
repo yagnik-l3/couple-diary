@@ -4,47 +4,70 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import StreakBadge from '@/components/StreakBadge';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-const MILESTONES = [
-    { day: 7, label: 'First Week', icon: '🌟', achieved: true },
-    { day: 14, label: 'Two Weeks', icon: '💫', achieved: false },
-    { day: 30, label: 'One Month', icon: '🌙', achieved: false },
-    { day: 100, label: 'Century', icon: '🪐', achieved: false },
-    { day: 365, label: 'One Year', icon: '🌌', achieved: false },
-];
+const GENDER_MAP: Record<string, { label: string; icon: string }> = {
+    'male': { label: 'Male', icon: '👨' },
+    'female': { label: 'Female', icon: '👩' },
+    'non-binary': { label: 'Non-Binary', icon: '🧑' },
+    'prefer-not': { label: 'Prefer Not to Say', icon: '✨' },
+};
+
+const TOPIC_MAP: Record<string, { label: string; icon: string }> = {
+    'love': { label: 'Love Languages', icon: '💕' },
+    'dreams': { label: 'Dreams & Goals', icon: '🌠' },
+    'intimacy': { label: 'Intimacy', icon: '🔥' },
+    'fun': { label: 'Fun & Hypothetical', icon: '🎭' },
+    'deep': { label: 'Deep Conversations', icon: '🌊' },
+    'memories': { label: 'Past Memories', icon: '📸' },
+    'future': { label: 'Future Together', icon: '🚀' },
+    'gratitude': { label: 'Gratitude', icon: '🙏' },
+};
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { state } = useAppState();
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return 'Not set';
+        const date = new Date(dateString);
+        return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    };
 
     return (
         <GradientBackground>
             <StarBackground />
+            {/* Header */}
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => router.back()}>
+                    <Text style={styles.backText}>← Back</Text>
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Profile</Text>
+                <TouchableOpacity onPress={() => router.push('/(main)/edit-profile')} style={styles.editButton}>
+                    <Text style={styles.editText}>Edit</Text>
+                </TouchableOpacity>
+            </View>
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()}>
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
-                </View>
 
                 {/* Avatar & Names */}
                 <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.profileSection}>
                     <AvatarMerge size={80} />
-                    <Text style={styles.coupleNames}>You & Your Love</Text>
-                    <Text style={styles.since}>Together since Dec 2025 💕</Text>
+                    <Text style={styles.coupleNames}>
+                        {state.userFirstName || 'You'} & {state.partnerName || 'Your Love'}
+                    </Text>
+                    <Text style={styles.since}>Together since {state.relationshipDate ? new Date(state.relationshipDate).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : '...'} 💕</Text>
                 </Animated.View>
 
                 {/* Streak Badge */}
                 <View style={styles.streakRow}>
-                    <StreakBadge count={12} size="lg" />
+                    <StreakBadge count={state.streakCount} size="lg" />
                 </View>
 
                 {/* Stats */}
@@ -52,57 +75,86 @@ export default function ProfileScreen() {
                     <FloatingCard style={styles.statsCard}>
                         <View style={styles.statsRow}>
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>12</Text>
+                                <Text style={styles.statValue}>{state.streakCount}</Text>
                                 <Text style={styles.statLabel}>Current{'\n'}Streak</Text>
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>12</Text>
+                                <Text style={styles.statValue}>{state.bestStreak}</Text>
                                 <Text style={styles.statLabel}>Best{'\n'}Streak</Text>
                             </View>
                             <View style={styles.statDivider} />
                             <View style={styles.statItem}>
-                                <Text style={styles.statValue}>12</Text>
+                                <Text style={styles.statValue}>{state.questionsAnswered}</Text>
                                 <Text style={styles.statLabel}>Questions{'\n'}Answered</Text>
                             </View>
                         </View>
                     </FloatingCard>
                 </Animated.View>
 
-                {/* Milestones */}
+                {/* User Details */}
                 <Animated.View entering={FadeInUp.delay(600).duration(600)}>
-                    <Text style={styles.sectionTitle}>Milestones</Text>
-                    <FloatingCard style={styles.milestonesCard}>
-                        {MILESTONES.map((m, i) => (
-                            <View key={i} style={styles.milestoneRow}>
-                                <Text style={[styles.milestoneIcon, !m.achieved && styles.milestoneIconLocked]}>
-                                    {m.achieved ? m.icon : '🔒'}
-                                </Text>
-                                <View style={styles.milestoneInfo}>
-                                    <Text style={[styles.milestoneName, !m.achieved && styles.milestoneLocked]}>
-                                        {m.label}
-                                    </Text>
-                                    <Text style={styles.milestoneDays}>Day {m.day}</Text>
-                                </View>
-                                {m.achieved && <Text style={styles.milestoneCheck}>✓</Text>}
+                    <Text style={styles.sectionTitle}>Your Details</Text>
+                    <FloatingCard style={styles.detailsCard}>
+
+                        {/* Email */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>✉️</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={styles.detailLabel}>Email</Text>
+                                <Text style={styles.detailValue}>{state.userEmail || 'No email'}</Text>
                             </View>
-                        ))}
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        {/* Gender */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>{state.userGender ? GENDER_MAP[state.userGender]?.icon : '👤'}</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={styles.detailLabel}>Gender</Text>
+                                <Text style={styles.detailValue}>{state.userGender ? GENDER_MAP[state.userGender]?.label : 'Not specificied'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        {/* Birth Date */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>🎂</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={styles.detailLabel}>Birth Date</Text>
+                                <Text style={styles.detailValue}>{formatDate(state.userBirthDate)}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        {/* Relationship Date */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>📅</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={styles.detailLabel}>Relationship Start</Text>
+                                <Text style={styles.detailValue}>{formatDate(state.relationshipDate)}</Text>
+                            </View>
+                        </View>
+
                     </FloatingCard>
                 </Animated.View>
 
-                {/* Theme Preview */}
-                <Animated.View entering={FadeInUp.delay(800).duration(600)}>
-                    <Text style={styles.sectionTitle}>Theme</Text>
-                    <View style={styles.themeRow}>
-                        {([
-                            ['#0B0D2E', '#1A1B4B', '#3D2C6E'] as const,
-                            ['#1A0A2E', '#3D1B5E', '#7B2D8E'] as const,
-                            ['#0E1428', '#1A2744', '#2C4066'] as const,
-                        ] as const).map((colors, i) => (
-                            <TouchableOpacity key={i} style={[styles.themePreview, i === 0 && styles.themeActive]}>
-                                <LinearGradient colors={colors} style={styles.themeGradient} />
-                            </TouchableOpacity>
+                {/* Topic Preferences */}
+                <Animated.View entering={FadeInUp.delay(700).duration(600)}>
+                    <Text style={styles.sectionTitle}>Daily Question Topics</Text>
+                    <View style={styles.topicsGrid}>
+                        {(state.topicPreferences || []).map((topicId) => (
+                            <View key={topicId} style={styles.topicChip}>
+                                <Text style={styles.topicIcon}>{TOPIC_MAP[topicId]?.icon || '❓'}</Text>
+                                <Text style={styles.topicLabel}>{TOPIC_MAP[topicId]?.label || topicId}</Text>
+                            </View>
                         ))}
+                        {(!state.topicPreferences || state.topicPreferences.length === 0) && (
+                            <Text style={styles.emptyText}>No topics selected</Text>
+                        )}
                     </View>
                 </Animated.View>
 
@@ -114,13 +166,30 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         paddingTop: 60,
         paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing.md,
+    },
+    headerTitle: {
+        ...Typography.bodySemiBold,
+        fontSize: 18,
     },
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
         fontSize: 15,
+    },
+    editButton: {
+        padding: Spacing.sm,
+    },
+    editText: {
+        ...Typography.caption,
+        color: Colors.softPink,
+        fontSize: 15,
+        fontWeight: '600',
     },
     scrollContent: {
         paddingBottom: 40,
@@ -175,63 +244,73 @@ const styles = StyleSheet.create({
         fontSize: 17,
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.md,
+        color: Colors.textPrimary,
+        marginTop: Spacing.md,
     },
-    milestonesCard: {
+    detailsCard: {
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.lg,
         padding: Spacing.md,
     },
-    milestoneRow: {
+    detailRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: Spacing.md,
         paddingVertical: Spacing.sm,
     },
-    milestoneIcon: {
-        fontSize: 24,
+    detailIcon: {
+        fontSize: 20,
+        marginRight: Spacing.md,
+        width: 30,
+        textAlign: 'center',
     },
-    milestoneIconLocked: {
-        opacity: 0.4,
-    },
-    milestoneInfo: {
+    detailContent: {
         flex: 1,
     },
-    milestoneName: {
-        ...Typography.bodyMedium,
+    detailLabel: {
+        ...Typography.caption,
+        color: Colors.textMuted,
+        fontSize: 12,
+        marginBottom: 2,
+    },
+    detailValue: {
+        ...Typography.body,
+        color: Colors.textPrimary,
         fontSize: 15,
     },
-    milestoneLocked: {
-        color: Colors.textMuted,
+    divider: {
+        height: 1,
+        backgroundColor: Colors.white08,
+        marginVertical: 4,
     },
-    milestoneDays: {
-        ...Typography.caption,
-        fontSize: 12,
+    topicsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
     },
-    milestoneCheck: {
-        ...Typography.bodySemiBold,
-        color: Colors.success,
+    topicChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.white08,
+        borderRadius: Radius.full,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        gap: 8,
+    },
+    topicIcon: {
         fontSize: 16,
     },
-    themeRow: {
-        flexDirection: 'row',
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.md,
+    topicLabel: {
+        ...Typography.caption,
+        color: Colors.textSecondary,
+        fontSize: 14,
     },
-    themePreview: {
-        width: 64,
-        height: 64,
-        borderRadius: Radius.md,
-        overflow: 'hidden',
-        borderWidth: 2,
-        borderColor: 'transparent',
-    },
-    themeActive: {
-        borderColor: Colors.softPink,
-    },
-    themeGradient: {
-        flex: 1,
+    emptyText: {
+        ...Typography.caption,
+        color: Colors.textMuted,
+        fontStyle: 'italic',
     },
     bottomSpacer: {
-        height: 40,
+        height: 60,
     },
 });

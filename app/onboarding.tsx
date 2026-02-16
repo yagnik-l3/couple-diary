@@ -6,6 +6,7 @@ import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
+import { createProfile, getProfile, joinPartner, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -166,16 +167,97 @@ export default function OnboardingScreen() {
 
     // Form state
     const [email, setEmail] = useState('');
-    const [otp, setOtp] = useState(['', '', '', '']);
-    const [name, setName] = useState('');
+    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [gender, setGender] = useState('');
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [inviteCode, setInviteCode] = useState('');
     const [codeError, setCodeError] = useState('');
     const [codeCopied, setCodeCopied] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [myInviteCode, setMyInviteCode] = useState('------');
+    const [error, setError] = useState('');
 
     const otpRefs = useRef<(TextInput | null)[]>([]);
-    const mockInviteCode = 'LOVE-2024-STARS';
+
+    // ─── Auth Logic ───────────────────────────────────
+    const handleSendOtp = async () => {
+        const trimmed = email.trim().toLowerCase();
+        if (!trimmed || !trimmed.includes('@')) {
+            setError('Please enter a valid email');
+            return;
+        }
+        setError('');
+        setLoading(true);
+        try {
+            await sendOtp(trimmed);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setActiveIndex(activeIndex + 1); // Go to OTP step
+        } catch (err: any) {
+            setError(err.message || 'Failed to send code');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (code: string) => {
+        setError('');
+        setLoading(true);
+        try {
+            await verifyOtp(email.trim().toLowerCase(), code);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+            // Check if profile exists
+            const profile = await getProfile();
+            if (profile) {
+                // User returning → Go Home
+                update({
+                    userEmail: profile.email,
+                    userFirstName: profile.first_name || profile.name?.split(' ')[0] || '',
+                    userLastName: profile.last_name || profile.name?.split(' ').slice(1).join(' ') || '',
+                    userGender: profile.gender as any,
+                    hasCompletedOnboarding: true,
+                    hasPartner: !!profile.couple_id,
+                    topicPreferences: profile.topic_preferences || [],
+                });
+                router.replace('/(main)/home');
+                return;
+            }
+
+            // New user → Continue to Name step
+            setActiveIndex(activeIndex + 1);
+        } catch (err: any) {
+            setError(err.message || 'Invalid code');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ─── OTP Input Handler ────────────────────────────
+    const handleOtpChange = (text: string, index: number) => {
+        const newOtp = [...otp];
+        if (text.length > 1) { // Paste
+            const chars = text.slice(0, 6).split('');
+            chars.forEach((c, i) => { if (i + index < 6) newOtp[i + index] = c; });
+            setOtp(newOtp);
+            if (newOtp.every(c => c !== '')) handleVerifyOtp(newOtp.join(''));
+            return;
+        }
+        newOtp[index] = text;
+        setOtp(newOtp);
+        if (text && index < 5) otpRefs.current[index + 1]?.focus();
+        if (text && newOtp.every(c => c !== '')) handleVerifyOtp(newOtp.join(''));
+    };
+    useEffect(() => {
+        (async () => {
+            const profile = await getProfile();
+            if (profile?.invite_code) {
+                setMyInviteCode(profile.invite_code);
+            }
+        })();
+    }, []);
 
     const currentStep = STEPS[activeIndex];
     const totalSteps = STEPS.length;
@@ -197,56 +279,132 @@ export default function OnboardingScreen() {
 
     // ─── Validation ───────────────────────────────────
     const canProceed = useCallback((): boolean => {
+        if (loading) return false;
         switch (currentStep.type) {
             case 'intro': return true;
-            case 'email': return email.includes('@') && email.includes('.');
+            case 'email': return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
             case 'otp': return otp.every(d => d !== '');
-            case 'name': return name.trim().length >= 2;
+            case 'name': return firstName.trim().length >= 2 && lastName.trim().length >= 1;
             case 'gender': return gender !== '';
             case 'topics': return selectedTopics.length >= 3;
             case 'invite': return true;
             default: return true;
         }
-    }, [currentStep.type, email, otp, name, gender, selectedTopics]);
+    }, [currentStep.type, email, otp, firstName, lastName, gender, selectedTopics, loading]);
+
+    // ─── Complete Onboarding (create profile in Supabase) ──
+    const finishOnboarding = async (withPartnerCode?: string) => {
+        setLoading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            // Profile is already created in 'createMyProfile'
+
+            // Update local state final flag
+            update({ hasCompletedOnboarding: true });
+
+            // If partner code provided, try to join
+            if (withPartnerCode) {
+                try {
+                    const result = await joinPartner(withPartnerCode);
+                    update({
+                        hasPartner: true,
+                        partnerName: result.partnerName,
+                    });
+                    router.replace({
+                        pathname: '/connected',
+                        params: { name: result.partnerName },
+                    });
+                    return;
+                } catch (err: any) {
+                    setCodeError(err.message || 'Failed to connect');
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // No partner → go home
+            update({ hasPartner: false });
+            router.replace('/(main)/home');
+        } catch (err: any) {
+            setCodeError(err.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ─── Create Profile (Intermediate Step) ───────────
+    const createMyProfile = async () => {
+        setLoading(true);
+        try {
+            const profile = await createProfile({
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                gender,
+                email: email || '',
+            });
+            setMyInviteCode(profile.invite_code);
+            // Update local state
+            update({
+                userEmail: email,
+                userFirstName: firstName.trim(),
+                userLastName: lastName.trim(),
+                userGender: gender as any,
+                topicPreferences: selectedTopics,
+            });
+            setActiveIndex(activeIndex + 1); // Go to Invite step
+        } catch (err: any) {
+            setCodeError(err.message || 'Failed to create profile');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // ─── Navigation ───────────────────────────────────
     const handleNext = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        // On invite step: validate partner code if entered
-        if (currentStep.type === 'invite' && inviteCode.trim().length > 0) {
-            if (inviteCode.trim().length < 8) {
-                setCodeError('Code must be at least 8 characters');
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Intro -> Email
+        if (currentStep.type === 'intro' && activeIndex < 3) { // 3 intros
+            if (activeIndex < 2) {
+                setActiveIndex(activeIndex + 1);
                 return;
             }
-            setCodeError('');
-            // Code is valid → navigate to standalone connected screen
-            router.replace({
-                pathname: '/connected',
-                params: {
-                    name,
-                    email,
-                    gender,
-                    topics: selectedTopics.join(','),
-                    inviteCode: inviteCode.trim(),
-                },
-            });
+            // Last intro -> Email
+            setActiveIndex(activeIndex + 1);
             return;
         }
 
-        if (currentStep.type === 'invite' && inviteCode.trim().length === 0) {
-            // No code entered → finish onboarding without partner
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            update({
-                userEmail: email,
-                userName: name,
-                userGender: gender as any,
-                topicPreferences: selectedTopics,
-                hasCompletedOnboarding: true,
-                hasPartner: false,
-            });
-            router.replace('/(main)/home');
+        // Email -> OTP
+        if (currentStep.type === 'email') {
+            handleSendOtp();
+            return;
+        }
+
+        // OTP -> Name (Handled in handleVerifyOtp)
+        if (currentStep.type === 'otp') {
+            return; // Wait for auto-submit or manual verify
+        }
+
+        // Topics -> Invite (Create Profile here!)
+        if (currentStep.type === 'topics') {
+            createMyProfile();
+            return;
+        }
+
+        // Invite -> Finish
+        if (currentStep.type === 'invite') {
+            const code = inviteCode.trim();
+            if (code.length > 0 && code.length < 6) {
+                setCodeError('Invite code must be 6 characters');
+                return;
+            }
+            if (code.length > 0) {
+                finishOnboarding(code);
+            } else {
+                finishOnboarding();
+            }
             return;
         }
 
@@ -266,33 +424,16 @@ export default function OnboardingScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         try {
             await Share.share({
-                message: `Join me on Couple Diary! Use my invite code: ${mockInviteCode} ✨💫`,
+                message: `Join me on Couple Diary! Use my invite code: ${myInviteCode} ✨💫`,
             });
         } catch { }
     };
 
     const handleCopyCode = async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await Clipboard.setStringAsync(mockInviteCode);
+        await Clipboard.setStringAsync(myInviteCode);
         setCodeCopied(true);
         setTimeout(() => setCodeCopied(false), 2000);
-    };
-
-    // ─── OTP Input Handler ────────────────────────────
-    const handleOtpChange = (text: string, index: number) => {
-        const newOtp = [...otp];
-        newOtp[index] = text;
-        setOtp(newOtp);
-        if (text) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (index < 3) {
-                otpRefs.current[index + 1]?.focus();
-            }
-            // Check if all OTP fields are filled
-            if (index === 3 && newOtp.every(d => d !== '')) {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }
-        }
     };
 
     // ─── Topic Toggle ─────────────────────────────────
@@ -308,7 +449,7 @@ export default function OnboardingScreen() {
             return inviteCode.trim().length > 0 ? 'Connect Partner' : 'Start Without Partner';
         }
         if (currentStep.type === 'intro') return 'Continue';
-        return 'Next';
+        return loading ? 'Setting up...' : 'Next';
     };
 
     // ─── Render Step Content ──────────────────────────
@@ -343,7 +484,7 @@ export default function OnboardingScreen() {
                             <TextInput
                                 style={styles.input}
                                 value={email}
-                                onChangeText={setEmail}
+                                onChangeText={(t) => { setEmail(t); setError(''); }}
                                 placeholder="your@email.com"
                                 placeholderTextColor={Colors.textMuted}
                                 keyboardType="email-address"
@@ -351,6 +492,7 @@ export default function OnboardingScreen() {
                                 autoFocus
                             />
                         </Animated.View>
+                        {error ? <Text style={styles.errorText}>{error}</Text> : null}
                     </Animated.View>
                 );
 
@@ -374,13 +516,15 @@ export default function OnboardingScreen() {
                                         maxLength={1}
                                         textAlign="center"
                                         autoFocus={i === 0}
+                                        selectTextOnFocus
                                     />
                                 </Animated.View>
                             ))}
                         </View>
+                        {error ? <Text style={styles.errorText}>{error}</Text> : null}
                         <Animated.View entering={FadeIn.delay(600).duration(400)}>
-                            <TouchableOpacity>
-                                <Text style={styles.resendText}>Didn't get the code? Resend</Text>
+                            <TouchableOpacity onPress={() => { setActiveIndex(activeIndex - 1); setOtp(['', '', '', '', '', '']); }}>
+                                <Text style={styles.resendText}>Change email or resend</Text>
                             </TouchableOpacity>
                         </Animated.View>
                     </Animated.View>
@@ -391,15 +535,27 @@ export default function OnboardingScreen() {
                     <Animated.View key="name" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
                         <Text style={styles.fieldTitle}>{currentStep.title}</Text>
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
+
                         <Animated.View entering={FadeInUp.delay(200).duration(400).springify()} style={styles.inputWrapper}>
                             <Text style={styles.inputIcon}>✨</Text>
                             <TextInput
                                 style={styles.input}
-                                value={name}
-                                onChangeText={setName}
-                                placeholder="Your name"
+                                value={firstName}
+                                onChangeText={setFirstName}
+                                placeholder="First Name"
                                 placeholderTextColor={Colors.textMuted}
                                 autoFocus
+                            />
+                        </Animated.View>
+
+                        <Animated.View entering={FadeInUp.delay(300).duration(400).springify()} style={[styles.inputWrapper, { marginTop: Spacing.md }]}>
+                            <Text style={styles.inputIcon}>🌟</Text>
+                            <TextInput
+                                style={styles.input}
+                                value={lastName}
+                                onChangeText={setLastName}
+                                placeholder="Last Name"
+                                placeholderTextColor={Colors.textMuted}
                             />
                         </Animated.View>
                     </Animated.View>
@@ -493,7 +649,7 @@ export default function OnboardingScreen() {
                             style={{ width: '100%' }}
                         >
                             <Animated.View entering={FadeInUp.delay(500).duration(400).springify()} style={styles.shareCodeBox}>
-                                <Text style={styles.shareCode}>{mockInviteCode}</Text>
+                                <Text style={styles.shareCode}>{myInviteCode}</Text>
                                 <Text style={styles.copyHint}>
                                     {codeCopied ? '✓ Copied!' : 'Tap to copy'}
                                 </Text>
@@ -568,6 +724,7 @@ export default function OnboardingScreen() {
                             title={getButtonLabel()}
                             onPress={handleNext}
                             disabled={!canProceed()}
+                            loading={loading}
                             style={styles.nextButton}
                         />
                     </Animated.View>
@@ -708,21 +865,27 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.md,
     },
 
+    errorText: {
+        ...Typography.caption,
+        color: Colors.danger,
+        marginTop: Spacing.sm,
+    },
     // ─── OTP ──────────────────────────────────────────
     otpRow: {
         flexDirection: 'row',
-        gap: Spacing.md,
+        gap: Spacing.sm,
         marginBottom: Spacing.lg,
+        justifyContent: 'center',
     },
     otpInput: {
-        width: ms(56),
-        height: ms(64),
+        width: ms(44),
+        height: ms(52),
         borderRadius: Radius.md,
         borderWidth: 1.5,
         borderColor: Colors.inputBorder,
         backgroundColor: Colors.inputBg,
         ...Typography.heading,
-        fontSize: ms(28),
+        fontSize: ms(24),
         color: Colors.textPrimary,
         textAlign: 'center',
     },
