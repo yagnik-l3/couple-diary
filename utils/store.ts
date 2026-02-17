@@ -30,6 +30,9 @@ export interface AppState {
 
     // Preferences
     topicPreferences: string[];
+    coupleVibe: string;
+    reminderTime: string;
+    timezone: string;
     hasCompletedOnboarding: boolean;
 
     // Today
@@ -54,6 +57,9 @@ const DEFAULT_STATE: AppState = {
     lastNudgeTime: '',
     nudgeCooldownMinutes: 30,
     topicPreferences: [],
+    coupleVibe: '',
+    reminderTime: '',
+    timezone: '',
     hasCompletedOnboarding: false,
     hasAnsweredToday: false,
     partnerAnsweredToday: false,

@@ -58,6 +58,10 @@ export default function HomeScreen() {
                 // Refresh profile/couple data to get latest streak and partner info
                 const profile = await (await import('@/utils/supabase')).getProfile();
                 if (profile) {
+                    if (!profile.couple_id) {
+                        router.replace('/onboarding');
+                        return;
+                    }
                     update({
                         streakCount: profile.streak_count,
                         bestStreak: profile.best_streak,
@@ -70,12 +74,16 @@ export default function HomeScreen() {
                         relationshipDate: profile.relationship_date || '',
                         topicPreferences: profile.topic_preferences || [],
                         lives: profile.lives || 1,
-                        hasPartner: !!profile.couple_id,
+                        hasPartner: true,
                         questionsAnswered: profile.questions_answered || 0,
                     });
                 }
 
                 const q = await QuestionService.getTodayQuestion();
+                if (!q) {
+                    setCtaState('answer');
+                    return;
+                }
                 setDailyId(q.daily_id);
                 const status = await QuestionService.getAnswerStatus(q.daily_id);
                 if (status.hasAnswered && status.partnerAnswered) {

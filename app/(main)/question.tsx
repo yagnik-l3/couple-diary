@@ -34,6 +34,10 @@ export default function QuestionScreen() {
         (async () => {
             try {
                 const q = await QuestionService.getTodayQuestion();
+                if (!q) {
+                    setError('No question available yet');
+                    return;
+                }
                 setQuestion({ text: q.text, category: q.category, daily_id: q.daily_id });
             } catch (err: any) {
                 setError(err.message || 'Failed to load question');

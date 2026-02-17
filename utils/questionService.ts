@@ -7,7 +7,7 @@ export const QuestionService = {
      * Get today's question for the couple.
      * If one doesn't exist, it assigns a new one from the pool.
      */
-    getTodayQuestion: async (): Promise<Question & { daily_id: string }> => {
+    getTodayQuestion: async (): Promise<(Question & { daily_id: string }) | null> => {
         const today = getTodayDate();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Not authenticated');
@@ -19,7 +19,7 @@ export const QuestionService = {
             .eq('id', user.id)
             .single();
 
-        if (!profile?.couple_id) throw new Error('No partner found');
+        if (!profile?.couple_id) return null;
 
         // 2. Check if a daily question already exists for today
         let { data: dailyQ } = await supabase

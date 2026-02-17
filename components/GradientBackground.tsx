@@ -16,9 +16,10 @@ export default function GradientBackground({
     ...rest
 }: Props) {
     const colors = variant === 'full' ? Gradients.backgroundFull : Gradients.background;
+    const safeColors = colors && colors.length >= 2 ? colors : ['#000', '#000'];
 
     return (
-        <LinearGradient colors={colors} style={[styles.container, style]} {...rest}>
+        <LinearGradient colors={safeColors as any} style={[styles.container, style]} {...rest}>
             {children}
         </LinearGradient>
     );

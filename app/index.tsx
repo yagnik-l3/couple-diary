@@ -36,23 +36,31 @@ export default function SplashScreen() {
             try {
                 const session = await getSession();
                 if (!session) {
-                    // Not logged in → onboarding (intro + auth)
+                    // No session → full onboarding (intro + auth)
                     router.replace('/onboarding');
                     return;
                 }
 
-                // Logged in — check if profile exists
+                // Session exists — check profile
                 const profile = await getProfile();
                 if (!profile) {
-                    // Has auth but no profile → needs onboarding
-                    router.replace('/onboarding');
-                } else {
-                    // Fully set up → home
-                    router.replace('/(main)/home');
+                    // Auth but no profile → skip intros + auth, start at name
+                    router.replace('/onboarding?resume=name');
+                    return;
                 }
+
+                // Profile exists — check partner
+                if (!profile.couple_id) {
+                    // Profile but no partner → skip to invite step
+                    router.replace('/onboarding?resume=invite');
+                    return;
+                }
+
+                // Fully set up → home
+                router.replace('/(main)/home');
             } catch {
-                // On error, send to login
-                router.replace('/login');
+                // On error, start fresh
+                router.replace('/onboarding');
             }
         }, 2500);
 

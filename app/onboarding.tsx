@@ -6,10 +6,10 @@ import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
-import { createProfile, getProfile, joinPartner, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
+import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboardingComplete, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
@@ -39,7 +39,7 @@ import Animated, {
 
 
 // ─── Step definitions ─────────────────────────────────
-type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'topics' | 'invite';
+type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'topics' | 'vibe' | 'reminder' | 'invite';
 
 interface Step {
     id: string;
@@ -54,11 +54,13 @@ const STEPS: Step[] = [
     { id: 'daily', type: 'intro', icon: '💬', title: 'Answer One\nQuestion Every Day', subtitle: 'Thoughtful questions designed\nto deepen your bond.' },
     { id: 'galaxy', type: 'intro', icon: '🌌', title: 'Watch Your\nUniverse Expand', subtitle: 'Every day you answer together,\nyour galaxy grows.' },
     { id: 'email', type: 'email', title: 'What\'s your\nemail?', subtitle: 'We\'ll send you a code to get started' },
-    { id: 'otp', type: 'otp', title: 'Enter the code', subtitle: 'Check your inbox for the magic code ✨' },
-    { id: 'name', type: 'name', title: 'What should we\ncall you?', subtitle: 'Your partner will see this name' },
-    { id: 'gender', type: 'gender', title: 'Tell us about\nyourself', subtitle: 'This helps personalize your questions' },
-    { id: 'topics', type: 'topics', title: 'What do you want\nto explore?', subtitle: 'Choose 3 or more topics for your daily questions' },
-    { id: 'invite', type: 'invite', title: 'Invite Your\nPartner', subtitle: 'Share your code or join theirs' },
+    { id: 'otp', type: 'otp', title: 'Enter your\nmagic code ✨', subtitle: 'Check your inbox for the magic code' },
+    { id: 'name', type: 'name', title: 'What does your\npartner call you?', subtitle: 'This name will appear in your universe' },
+    { id: 'gender', type: 'gender', title: 'Help us personalize\nyour universe', subtitle: 'This helps personalize your questions' },
+    { id: 'topics', type: 'topics', title: 'Choose what you\nlove talking about', subtitle: 'Pick 3 or more — you can change this anytime' },
+    { id: 'vibe', type: 'vibe', title: 'Your Couple\nVibe 💫', subtitle: 'How would you describe your relationship?' },
+    { id: 'reminder', type: 'reminder', title: 'When should we\nremind you? 🔔', subtitle: 'A daily nudge so you never miss a question' },
+    { id: 'invite', type: 'invite', title: 'Invite Your\nOther Half', subtitle: 'Share your code or join theirs' },
 ];
 
 const TOPIC_OPTIONS = [
@@ -70,6 +72,8 @@ const TOPIC_OPTIONS = [
     { id: 'memories', label: 'Past Memories', icon: '📸' },
     { id: 'future', label: 'Future Together', icon: '🚀' },
     { id: 'gratitude', label: 'Gratitude', icon: '🙏' },
+    { id: 'chaos', label: 'Random Chaos', icon: '🎲' },
+    { id: 'games', label: 'Couple Games', icon: '🎮' },
 ];
 
 const GENDER_OPTIONS = [
@@ -77,6 +81,20 @@ const GENDER_OPTIONS = [
     { id: 'female', label: 'Female', icon: '👩' },
     { id: 'non-binary', label: 'Non-Binary', icon: '🧑' },
     { id: 'prefer-not', label: 'Prefer Not to Say', icon: '✨' },
+];
+
+const VIBE_OPTIONS = [
+    { id: 'romantic', label: 'Cute & Romantic', icon: '💞' },
+    { id: 'funny', label: 'Funny & Meme-Lords', icon: '😂' },
+    { id: 'deep', label: 'Deep & Emotional', icon: '🌊' },
+    { id: 'chaotic', label: 'Chaotic but Loyal', icon: '🔥' },
+    { id: 'calm', label: 'Calm & Peaceful', icon: '🌿' },
+];
+
+const REMINDER_OPTIONS = [
+    { id: '09:00', label: 'Morning', time: '9 AM', icon: '☀️' },
+    { id: '18:00', label: 'Evening', time: '6 PM', icon: '🌅' },
+    { id: '22:00', label: 'Night', time: '10 PM', icon: '🌙' },
 ];
 
 // ─── Animated Chip Component ──────────────────────────
@@ -160,10 +178,40 @@ function PulsingIcon({ icon }: { icon: string }) {
     );
 }
 
+// ─── Reminder Card Component ──────────────────────────
+function ReminderCard({
+    label, time, icon, selected, onPress, index,
+}: { label: string; time: string; icon: string; selected: boolean; onPress: () => void; index: number }) {
+
+    const handlePress = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+    };
+
+    return (
+        <Animated.View
+            entering={FadeInUp.delay(index * 100 + 100).duration(400).springify()}
+            style={{ flex: 1 }}
+        >
+            <TouchableOpacity
+                style={[styles.reminderCard, selected && styles.reminderCardSelected]}
+                onPress={handlePress}
+                activeOpacity={0.85}
+            >
+                <Text style={styles.reminderIcon}>{icon}</Text>
+                <Text style={[styles.reminderTime, selected && styles.reminderTimeSelected]}>{time}</Text>
+                <Text style={[styles.reminderLabel, selected && styles.reminderLabelSelected]}>{label}</Text>
+            </TouchableOpacity>
+        </Animated.View>
+    );
+}
+
 export default function OnboardingScreen() {
     const router = useRouter();
+    const { resume } = useLocalSearchParams<{ resume?: string }>();
     const { update } = useAppState();
     const [activeIndex, setActiveIndex] = useState(0);
+    const [resumeHandled, setResumeHandled] = useState(false);
 
     // Form state
     const [email, setEmail] = useState('');
@@ -172,6 +220,8 @@ export default function OnboardingScreen() {
     const [lastName, setLastName] = useState('');
     const [gender, setGender] = useState('');
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+    const [coupleVibe, setCoupleVibe] = useState('');
+    const [reminderTime, setReminderTime] = useState('');
     const [inviteCode, setInviteCode] = useState('');
     const [codeError, setCodeError] = useState('');
     const [codeCopied, setCodeCopied] = useState(false);
@@ -211,17 +261,29 @@ export default function OnboardingScreen() {
             // Check if profile exists
             const profile = await getProfile();
             if (profile) {
-                // User returning → Go Home
+                // Returning user — pre-fill state
                 update({
                     userEmail: profile.email,
                     userFirstName: profile.first_name || profile.name?.split(' ')[0] || '',
                     userLastName: profile.last_name || profile.name?.split(' ').slice(1).join(' ') || '',
                     userGender: profile.gender as any,
-                    hasCompletedOnboarding: true,
-                    hasPartner: !!profile.couple_id,
                     topicPreferences: profile.topic_preferences || [],
+                    coupleVibe: profile.couple_vibe || '',
                 });
-                router.replace('/(main)/home');
+
+                if (profile.couple_id) {
+                    // Fully paired → home
+                    update({ hasCompletedOnboarding: true, hasPartner: true });
+                    router.replace('/(main)/home');
+                } else {
+                    // Profile exists but no partner → jump to invite step
+                    setMyInviteCode(profile.invite_code || '------');
+                    setFirstName(profile.first_name || '');
+                    setLastName(profile.last_name || '');
+                    setGender(profile.gender || '');
+                    const inviteIdx = STEPS.findIndex(s => s.type === 'invite');
+                    setActiveIndex(inviteIdx >= 0 ? inviteIdx : activeIndex + 1);
+                }
                 return;
             }
 
@@ -250,20 +312,90 @@ export default function OnboardingScreen() {
         if (text && index < 5) otpRefs.current[index + 1]?.focus();
         if (text && newOtp.every(c => c !== '')) handleVerifyOtp(newOtp.join(''));
     };
+
+    // ─── OTP Backspace Handler ────────────────────────
+    const handleOtpKeyPress = (key: string, index: number) => {
+        if (key === 'Backspace' && !otp[index] && index > 0) {
+            const newOtp = [...otp];
+            newOtp[index - 1] = '';
+            setOtp(newOtp);
+            otpRefs.current[index - 1]?.focus();
+        }
+    };
+
+    // ─── Load invite code & handle resume ──────────────
     useEffect(() => {
         (async () => {
-            const profile = await getProfile();
-            if (profile?.invite_code) {
-                setMyInviteCode(profile.invite_code);
+            try {
+                const profile = await getProfile();
+                if (profile?.invite_code) {
+                    setMyInviteCode(profile.invite_code);
+                }
+
+                // Handle resume param from splash screen
+                if (resume && !resumeHandled) {
+                    setResumeHandled(true);
+                    if (resume === 'invite' && profile) {
+                        // Pre-fill from existing profile
+                        setFirstName(profile.first_name || '');
+                        setLastName(profile.last_name || '');
+                        setGender(profile.gender || '');
+                        setEmail(profile.email || '');
+                        const inviteIdx = STEPS.findIndex(s => s.type === 'invite');
+                        if (inviteIdx >= 0) setActiveIndex(inviteIdx);
+                    } else if (resume === 'name') {
+                        // Skip intros + auth steps, go to name
+                        const nameIdx = STEPS.findIndex(s => s.type === 'name');
+                        if (nameIdx >= 0) setActiveIndex(nameIdx);
+                    }
+                }
+            } catch {
+                // ignore — profile may not exist yet
             }
         })();
-    }, []);
+    }, [resume]);
 
     const currentStep = STEPS[activeIndex];
     const totalSteps = STEPS.length;
 
+    // ─── Poll for Partner Connection ──────────────────
+    useEffect(() => {
+        let interval: any;
+        if (currentStep?.type === 'invite' && !loading) {
+            interval = setInterval(async () => {
+                try {
+                    const profile = await getProfile();
+                    if (profile?.couple_id) {
+                        // Connection found!
+                        if (interval) clearInterval(interval);
+
+                        // Mark complete on server
+                        await markOnboardingComplete();
+
+                        update({
+                            hasPartner: true,
+                            hasCompletedOnboarding: true,
+                            partnerName: profile.partner_name || 'Partner',
+                        });
+
+                        router.replace({
+                            pathname: '/connected',
+                            params: { name: firstName || 'You' },
+                        });
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err);
+                }
+            }, 3000); // Poll every 3 seconds
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [currentStep?.type, loading]);
+
     // ─── Animated Progress ────────────────────────────
     const progressWidth = useSharedValue(1 / totalSteps);
+    const progressGlow = useSharedValue(0.3);
 
     useEffect(() => {
         progressWidth.value = withSpring((activeIndex + 1) / totalSteps, {
@@ -271,10 +403,19 @@ export default function OnboardingScreen() {
             stiffness: 120,
             mass: 0.8,
         });
+        // Shimmer effect when progress changes
+        progressGlow.value = withSequence(
+            withTiming(1, { duration: 400 }),
+            withTiming(0.3, { duration: 600 }),
+        );
     }, [activeIndex]);
 
     const progressAnimStyle = useAnimatedStyle(() => ({
         width: `${progressWidth.value * 100}%`,
+    }));
+
+    const progressGlowStyle = useAnimatedStyle(() => ({
+        shadowOpacity: progressGlow.value,
     }));
 
     // ─── Validation ───────────────────────────────────
@@ -287,48 +428,38 @@ export default function OnboardingScreen() {
             case 'name': return firstName.trim().length >= 2 && lastName.trim().length >= 1;
             case 'gender': return gender !== '';
             case 'topics': return selectedTopics.length >= 3;
-            case 'invite': return true;
+            case 'vibe': return coupleVibe !== '';
+            case 'reminder': return reminderTime !== '';
+            case 'invite': return inviteCode.trim().length === 6;
             default: return true;
         }
-    }, [currentStep.type, email, otp, firstName, lastName, gender, selectedTopics, loading]);
+    }, [currentStep.type, email, otp, firstName, lastName, gender, selectedTopics, coupleVibe, reminderTime, loading, inviteCode]);
 
-    // ─── Complete Onboarding (create profile in Supabase) ──
-    const finishOnboarding = async (withPartnerCode?: string) => {
+    // ─── Complete Onboarding (join partner) ──────────────
+    const finishOnboarding = async (withPartnerCode: string) => {
         setLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            // Profile is already created in 'createMyProfile'
+            // Join partner with their code
+            const result = await joinPartner(withPartnerCode);
 
-            // Update local state final flag
-            update({ hasCompletedOnboarding: true });
+            // Mark onboarding complete on server
+            await markOnboardingComplete();
 
-            // If partner code provided, try to join
-            if (withPartnerCode) {
-                try {
-                    const result = await joinPartner(withPartnerCode);
-                    update({
-                        hasPartner: true,
-                        partnerName: result.partnerName,
-                    });
-                    router.replace({
-                        pathname: '/connected',
-                        params: { name: result.partnerName },
-                    });
-                    return;
-                } catch (err: any) {
-                    setCodeError(err.message || 'Failed to connect');
-                    setLoading(false);
-                    return;
-                }
-            }
+            update({
+                hasPartner: true,
+                hasCompletedOnboarding: true,
+                partnerName: result.partnerName,
+            });
 
-            // No partner → go home
-            update({ hasPartner: false });
-            router.replace('/(main)/home');
+            router.replace({
+                pathname: '/connected',
+                params: { name: result.partnerName },
+            });
         } catch (err: any) {
-            setCodeError(err.message || 'Something went wrong');
+            setCodeError(err.message || 'Failed to connect');
         } finally {
             setLoading(false);
         }
@@ -338,11 +469,16 @@ export default function OnboardingScreen() {
     const createMyProfile = async () => {
         setLoading(true);
         try {
+            // Capture device timezone for notifications
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
             const profile = await createProfile({
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 gender,
                 email: email || '',
+                reminder_time: reminderTime,
+                timezone: tz,
             });
             setMyInviteCode(profile.invite_code);
             // Update local state
@@ -352,6 +488,9 @@ export default function OnboardingScreen() {
                 userLastName: lastName.trim(),
                 userGender: gender as any,
                 topicPreferences: selectedTopics,
+                coupleVibe: coupleVibe,
+                reminderTime: reminderTime,
+                timezone: tz,
             });
             setActiveIndex(activeIndex + 1); // Go to Invite step
         } catch (err: any) {
@@ -387,23 +526,17 @@ export default function OnboardingScreen() {
             return; // Wait for auto-submit or manual verify
         }
 
-        // Topics -> Invite (Create Profile here!)
-        if (currentStep.type === 'topics') {
+        // Reminder -> Create Profile -> Invite
+        if (currentStep.type === 'reminder') {
             createMyProfile();
             return;
         }
 
-        // Invite -> Finish
+        // Invite -> Finish (Requires code or auto-advances via polling)
         if (currentStep.type === 'invite') {
             const code = inviteCode.trim();
-            if (code.length > 0 && code.length < 6) {
-                setCodeError('Invite code must be 6 characters');
-                return;
-            }
-            if (code.length > 0) {
+            if (code.length === 6) {
                 finishOnboarding(code);
-            } else {
-                finishOnboarding();
             }
             return;
         }
@@ -446,7 +579,7 @@ export default function OnboardingScreen() {
     // ─── Button Label ─────────────────────────────────
     const getButtonLabel = (): string => {
         if (currentStep.type === 'invite') {
-            return inviteCode.trim().length > 0 ? 'Connect Partner' : 'Start Without Partner';
+            return inviteCode.trim().length === 6 ? 'Connect Partner' : "Waiting for Your Other Half...";
         }
         if (currentStep.type === 'intro') return 'Continue';
         return loading ? 'Setting up...' : 'Next';
@@ -512,6 +645,7 @@ export default function OnboardingScreen() {
                                         style={[styles.otpInput, digit ? styles.otpFilled : null]}
                                         value={digit}
                                         onChangeText={text => handleOtpChange(text, i)}
+                                        onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, i)}
                                         keyboardType="number-pad"
                                         maxLength={1}
                                         textAlign="center"
@@ -607,6 +741,47 @@ export default function OnboardingScreen() {
                     </Animated.View>
                 );
 
+            case 'vibe':
+                return (
+                    <Animated.View key="vibe" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
+                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
+                        <View style={styles.chipGrid}>
+                            {VIBE_OPTIONS.map((opt, i) => (
+                                <AnimatedChip
+                                    key={opt.id}
+                                    label={opt.label}
+                                    icon={opt.icon}
+                                    selected={coupleVibe === opt.id}
+                                    onPress={() => setCoupleVibe(opt.id)}
+                                    index={i}
+                                />
+                            ))}
+                        </View>
+                    </Animated.View>
+                );
+
+            case 'reminder':
+                return (
+                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
+                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
+                        <View style={styles.reminderRow}>
+                            {REMINDER_OPTIONS.map((opt, i) => (
+                                <ReminderCard
+                                    key={opt.id}
+                                    label={opt.label}
+                                    time={opt.time}
+                                    icon={opt.icon}
+                                    selected={reminderTime === opt.id}
+                                    onPress={() => setReminderTime(opt.id)}
+                                    index={i}
+                                />
+                            ))}
+                        </View>
+                    </Animated.View>
+                );
+
             case 'invite':
                 return (
                     <Animated.View key="invite" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
@@ -624,7 +799,7 @@ export default function OnboardingScreen() {
                                         style={[styles.input, { textAlign: 'center', letterSpacing: 3 }]}
                                         value={inviteCode}
                                         onChangeText={(t) => { setInviteCode(t); setCodeError(''); }}
-                                        placeholder="XXXX-XXXX-XXXX"
+                                        placeholder="XXXXXX"
                                         placeholderTextColor={Colors.textMuted}
                                         autoCapitalize="characters"
                                     />
@@ -655,12 +830,6 @@ export default function OnboardingScreen() {
                                 </Text>
                             </Animated.View>
                         </TouchableOpacity>
-
-                        {/* <Animated.View entering={FadeInUp.delay(600).duration(400)} style={styles.shareRow}>
-                            <TouchableOpacity onPress={handleShare} style={styles.shareLink}>
-                                <Text style={styles.shareLinkText}>🔗 Share with partner</Text>
-                            </TouchableOpacity>
-                        </Animated.View> */}
                     </Animated.View>
                 );
 
@@ -693,7 +862,7 @@ export default function OnboardingScreen() {
                         )}
 
                         <View style={styles.progressBar}>
-                            <Animated.View style={[styles.progressFill, progressAnimStyle]} />
+                            <Animated.View style={[styles.progressFill, progressAnimStyle, progressGlowStyle]} />
                         </View>
 
                         {activeIndex >= 3 ? (
@@ -775,6 +944,10 @@ const styles = StyleSheet.create({
         height: '100%',
         backgroundColor: Colors.softPink,
         borderRadius: 2,
+        shadowColor: Colors.softPink,
+        shadowOffset: { width: 0, height: 0 },
+        shadowRadius: 8,
+        elevation: 4,
     },
     stepIndicator: {
         ...Typography.caption,
@@ -899,7 +1072,7 @@ const styles = StyleSheet.create({
         color: Colors.softPink,
     },
 
-    // ─── Gender chips ─────────────────────────────────
+    // ─── Gender chips / Vibe chips ────────────────────
     chipGrid: {
         width: '100%',
         gap: Spacing.sm,
@@ -974,6 +1147,47 @@ const styles = StyleSheet.create({
         ...Typography.bodySemiBold,
         fontSize: ms(13),
         color: Colors.softPink,
+    },
+
+    // ─── Reminder ─────────────────────────────────────
+    reminderRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        width: '100%',
+    },
+    reminderCard: {
+        alignItems: 'center',
+        backgroundColor: Colors.inputBg,
+        borderRadius: Radius.lg,
+        borderWidth: 1.5,
+        borderColor: Colors.inputBorder,
+        paddingVertical: Spacing.lg,
+        paddingHorizontal: Spacing.md,
+        gap: Spacing.xs,
+    },
+    reminderCardSelected: {
+        borderColor: Colors.softPink,
+        backgroundColor: 'rgba(199, 125, 184, 0.1)',
+    },
+    reminderIcon: {
+        fontSize: ms(28),
+        marginBottom: Spacing.xs,
+    },
+    reminderTime: {
+        ...Typography.bodySemiBold,
+        fontSize: ms(16),
+        color: Colors.textSecondary,
+    },
+    reminderTimeSelected: {
+        color: Colors.textPrimary,
+    },
+    reminderLabel: {
+        ...Typography.caption,
+        fontSize: ms(12),
+        color: Colors.textMuted,
+    },
+    reminderLabelSelected: {
+        color: Colors.textSecondary,
     },
 
     // ─── Invite ───────────────────────────────────────

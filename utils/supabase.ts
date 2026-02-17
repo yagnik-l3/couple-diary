@@ -137,6 +137,7 @@ export async function getProfile() {
         // Couple-specific fields (may be null if no couple yet)
         relationship_date: coupleData?.relationship_date || null,
         topic_preferences: coupleData?.topic_preferences || [],
+        couple_vibe: coupleData?.couple_vibe || '',
         streak_count: coupleData?.streak_count || 0,
         best_streak: coupleData?.best_streak || 0,
         lives: coupleData?.lives || 1,
@@ -152,6 +153,8 @@ export async function createProfile(profile: {
     gender: string;
     email: string;
     birth_date?: string;
+    reminder_time?: string;
+    timezone?: string;
 }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
@@ -162,6 +165,8 @@ export async function createProfile(profile: {
         gender: profile.gender,
         email: profile.email || user.email || '',
         birth_date: profile.birth_date || null,
+        reminder_time: profile.reminder_time || null,
+        timezone: profile.timezone || null,
     };
 
     // Check if profile exists
@@ -211,6 +216,19 @@ export async function updateProfile(updates: Record<string, any>) {
 
     if (error) throw error;
     return data;
+}
+
+/** Mark onboarding as complete (called when partner connection confirmed) */
+export async function completeOnboarding() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ onboarding_completed_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+    if (error) throw error;
 }
 
 /** Update couple-specific fields (couples table) */

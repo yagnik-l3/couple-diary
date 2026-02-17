@@ -32,7 +32,7 @@ export default function RevealScreen() {
             try {
                 // Fetch the question text
                 const q = await QuestionService.getTodayQuestion();
-                setQuestionText(q.text);
+                if (q) setQuestionText(q.text);
 
                 // Fetch both answers
                 const answers = await QuestionService.getRevealAnswers(daily_id);

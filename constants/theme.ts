@@ -34,6 +34,8 @@ export const Colors = {
   danger: '#E86A6A',
   white08: 'rgba(255,255,255,0.08)',
   white15: 'rgba(255,255,255,0.15)',
+  white12: 'rgba(255,255,255,0.12)',
+  white05: 'rgba(255,255,255,0.05)',
   white30: 'rgba(255,255,255,0.30)',
 };
 

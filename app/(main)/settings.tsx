@@ -124,7 +124,7 @@ export default function SettingsScreen() {
                     <FloatingCard style={styles.sectionCard}>
                         <SettingRow icon="👤" label="Profile" onPress={() => router.push('/(main)/profile')} showArrow />
                         <View style={styles.rowDivider} />
-                        <SettingRow icon="💌" label="Invite Partner" onPress={openInviteModal} showArrow />
+                        {/* <SettingRow icon="💌" label="Invite Partner" onPress={openInviteModal} showArrow /> */}
                     </FloatingCard>
                 </Animated.View>
 
