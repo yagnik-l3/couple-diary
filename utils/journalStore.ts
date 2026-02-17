@@ -78,3 +78,25 @@ export async function getAllEntries(): Promise<JournalEntry[]> {
             updatedAt: e.updated_at,
         }));
 }
+
+/** Get all entries within a date range (inclusive). Returns all entries including empty. */
+export async function getWeekEntries(startDate: string, endDate: string): Promise<JournalEntry[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map(e => ({
+        date: e.date,
+        content: e.content || '',
+        updatedAt: e.updated_at,
+    }));
+}

@@ -18,7 +18,7 @@ export default function ConnectedScreen() {
 
     const handleStartJourney = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        router.replace('/(main)/home');
+        router.replace('/couple-setup');
     };
 
     return (

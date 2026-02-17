@@ -60,6 +60,11 @@ export const Typography = {
     fontFamily: 'PlayfairDisplay_700Bold_Italic',
     color: Colors.textPrimary,
   },
+  h3: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: ms(20),
+    color: Colors.textPrimary,
+  },
   body: {
     fontFamily: 'Inter_400Regular',
     color: Colors.textPrimary,

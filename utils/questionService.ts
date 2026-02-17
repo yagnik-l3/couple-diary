@@ -193,4 +193,58 @@ export const QuestionService = {
                 };
             });
     },
+
+    /**
+     * Get timeline entries for a specific date range (inclusive).
+     * Like getTimeline but with date filtering for weekly batch fetch.
+     */
+    getTimelineForWeek: async (startDate: string, endDate: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('couple_id')
+            .eq('id', user.id)
+            .single();
+
+        if (!profile?.couple_id) return [];
+
+        const { data: dailyQuestions, error } = await supabase
+            .from('daily_questions')
+            .select(`
+                id,
+                date,
+                question:questions(text, category),
+                answers(content, user_id, profile:profiles(first_name))
+            `)
+            .eq('couple_id', profile.couple_id)
+            .gte('date', startDate)
+            .lte('date', endDate)
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+
+        return (dailyQuestions || [])
+            .filter(dq => {
+                const answers = dq.answers || [];
+                return answers.length >= 2;
+            })
+            .map((dq) => {
+                const q = dq.question as any;
+                const answers = dq.answers || [] as any[];
+                const myAnswer = answers.find((a: any) => a.user_id === user.id);
+                const partnerAnswer = answers.find((a: any) => a.user_id !== user.id);
+
+                return {
+                    id: dq.id,
+                    date: dq.date,
+                    question: q?.text || '',
+                    category: q?.category || 'general',
+                    myAnswer: myAnswer?.content || '',
+                    partnerAnswer: partnerAnswer?.content || '',
+                    partnerName: (partnerAnswer?.profile as any)?.first_name || 'Partner',
+                };
+            });
+    },
 };

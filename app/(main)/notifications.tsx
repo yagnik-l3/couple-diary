@@ -2,9 +2,12 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
+import { supabase } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
@@ -13,60 +16,106 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
-// ─── Mock Notifications ──────────────────────────────
-const NOTIFICATIONS = [
-    {
-        id: '1',
-        icon: '💬',
-        title: 'Partner answered today\'s question!',
-        body: 'Tap to reveal their answer',
-        time: '2 min ago',
-        unread: true,
-    },
-    {
-        id: '2',
-        icon: '🔥',
-        title: '12-day streak! 🎉',
-        body: 'You\'re on fire! Keep answering together.',
-        time: '1 hour ago',
-        unread: true,
-    },
-    {
-        id: '3',
-        icon: '⭐',
-        title: 'New level unlocked',
-        body: 'You\'ve become Constellation Makers!',
-        time: '3 hours ago',
-        unread: false,
-    },
-    {
-        id: '4',
-        icon: '💌',
-        title: 'Don\'t forget today\'s question',
-        body: 'Your partner is waiting for your answer.',
-        time: 'Yesterday',
-        unread: false,
-    },
-    {
-        id: '5',
-        icon: '🌟',
-        title: 'Weekly recap is ready',
-        body: 'See your highlights from this week.',
-        time: 'Yesterday',
-        unread: false,
-    },
-    {
-        id: '6',
-        icon: '💫',
-        title: 'Partner sent a nudge!',
-        body: '"Missing your answer today 💕"',
-        time: '2 days ago',
-        unread: false,
-    },
-];
+// ─── Types ───────────────────────────────────────────
+interface NotificationItem {
+    id: string;
+    type: string;
+    title: string;
+    body: string;
+    data: Record<string, any>;
+    read: boolean;
+    created_at: string;
+}
+
+// ─── Icon Map ────────────────────────────────────────
+const ICON_MAP: Record<string, string> = {
+    partner_answered: '💬',
+    nudge: '💌',
+    new_question: '✨',
+    level_up: '⭐',
+    streak_warning: '🔥',
+};
+
+function timeAgo(date: string): string {
+    const diff = Date.now() - new Date(date).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'Yesterday';
+    return `${days}d ago`;
+}
 
 export default function NotificationScreen() {
     const router = useRouter();
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const fetchNotifications = useCallback(async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (error) throw error;
+            setNotifications(data || []);
+        } catch (err) {
+            console.warn('Failed to fetch notifications:', err);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    const onRefresh = useCallback(() => {
+        setRefreshing(true);
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    // Mark all visible as read
+    useEffect(() => {
+        const unread = notifications.filter(n => !n.read).map(n => n.id);
+        if (unread.length > 0) {
+            supabase
+                .from('notifications')
+                .update({ read: true })
+                .in('id', unread)
+                .then(() => {
+                    // Silently mark as read
+                });
+        }
+    }, [notifications]);
+
+    const handleNotifPress = (notif: NotificationItem) => {
+        switch (notif.type) {
+            case 'partner_answered':
+                if (notif.data?.daily_id) {
+                    router.push({ pathname: '/(main)/reveal', params: { daily_id: notif.data.daily_id } } as any);
+                }
+                break;
+            case 'nudge':
+            case 'new_question':
+            case 'streak_warning':
+                router.push('/(main)/question');
+                break;
+            case 'level_up':
+                router.push('/(main)/levels');
+                break;
+        }
+    };
 
     return (
         <GradientBackground>
@@ -81,46 +130,77 @@ export default function NotificationScreen() {
                     <View style={{ width: 50 }} />
                 </View>
 
-                {/* List */}
-                <ScrollView
-                    contentContainerStyle={styles.scrollContent}
-                    showsVerticalScrollIndicator={false}
-                >
-                    {NOTIFICATIONS.map((notif, index) => (
-                        <Animated.View
-                            key={notif.id}
-                            entering={FadeInUp.delay(index * 60).duration(400)}
-                        >
-                            <TouchableOpacity activeOpacity={0.8}>
-                                <View style={[
-                                    styles.notifCard,
-                                    notif.unread && styles.notifCardUnread,
-                                ]}>
-                                    <View style={styles.iconCircle}>
-                                        <Text style={styles.iconText}>{notif.icon}</Text>
-                                    </View>
-                                    <View style={styles.notifContent}>
-                                        <Text style={[
-                                            styles.notifTitle,
-                                            notif.unread && styles.notifTitleUnread,
-                                        ]} numberOfLines={1}>
-                                            {notif.title}
-                                        </Text>
-                                        <Text style={styles.notifBody} numberOfLines={2}>
-                                            {notif.body}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.notifTime}>{notif.time}</Text>
-                                    {notif.unread && <View style={styles.unreadDot} />}
-                                </View>
-                            </TouchableOpacity>
-                        </Animated.View>
-                    ))}
+                {loading ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator color={Colors.softPink} size="large" />
+                    </View>
+                ) : (
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                tintColor={Colors.softPink}
+                            />
+                        }
+                    >
+                        {notifications.length === 0 ? (
+                            <Animated.View entering={FadeIn.duration(400)} style={styles.emptyContainer}>
+                                <Text style={styles.emptyIcon}>🔔</Text>
+                                <Text style={styles.emptyText}>No notifications yet</Text>
+                                <Text style={styles.emptySubtext}>
+                                    Answer questions and keep your streak going!
+                                </Text>
+                            </Animated.View>
+                        ) : (
+                            <>
+                                {notifications.map((notif, index) => (
+                                    <Animated.View
+                                        key={notif.id}
+                                        entering={FadeInUp.delay(index * 60).duration(400)}
+                                    >
+                                        <TouchableOpacity
+                                            activeOpacity={0.8}
+                                            onPress={() => handleNotifPress(notif)}
+                                        >
+                                            <View style={[
+                                                styles.notifCard,
+                                                !notif.read && styles.notifCardUnread,
+                                            ]}>
+                                                <View style={styles.iconCircle}>
+                                                    <Text style={styles.iconText}>
+                                                        {ICON_MAP[notif.type] || '🔔'}
+                                                    </Text>
+                                                </View>
+                                                <View style={styles.notifContent}>
+                                                    <Text style={[
+                                                        styles.notifTitle,
+                                                        !notif.read && styles.notifTitleUnread,
+                                                    ]} numberOfLines={1}>
+                                                        {notif.title}
+                                                    </Text>
+                                                    <Text style={styles.notifBody} numberOfLines={2}>
+                                                        {notif.body}
+                                                    </Text>
+                                                </View>
+                                                <Text style={styles.notifTime}>
+                                                    {timeAgo(notif.created_at)}
+                                                </Text>
+                                                {!notif.read && <View style={styles.unreadDot} />}
+                                            </View>
+                                        </TouchableOpacity>
+                                    </Animated.View>
+                                ))}
 
-                    <Animated.View entering={FadeIn.delay(400).duration(400)} style={styles.endLabel}>
-                        <Text style={styles.endText}>You're all caught up ✨</Text>
-                    </Animated.View>
-                </ScrollView>
+                                <Animated.View entering={FadeIn.delay(400).duration(400)} style={styles.endLabel}>
+                                    <Text style={styles.endText}>You're all caught up ✨</Text>
+                                </Animated.View>
+                            </>
+                        )}
+                    </ScrollView>
+                )}
             </View>
         </GradientBackground>
     );
@@ -147,9 +227,34 @@ const styles = StyleSheet.create({
         ...Typography.bodySemiBold,
         fontSize: ms(18),
     },
+    loadingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     scrollContent: {
         paddingHorizontal: Spacing.lg,
         paddingBottom: vs(40),
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingTop: vs(80),
+    },
+    emptyIcon: {
+        fontSize: ms(48),
+        marginBottom: Spacing.md,
+    },
+    emptyText: {
+        ...Typography.bodySemiBold,
+        fontSize: ms(18),
+        marginBottom: Spacing.sm,
+    },
+    emptySubtext: {
+        ...Typography.body,
+        color: Colors.textMuted,
+        fontSize: ms(14),
+        textAlign: 'center',
     },
     notifCard: {
         flexDirection: 'row',

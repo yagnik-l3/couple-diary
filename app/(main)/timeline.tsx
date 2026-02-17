@@ -6,7 +6,7 @@ import { Colors, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { ms, vs } from '@/utils/scale';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     ScrollView,
@@ -19,7 +19,6 @@ import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 interface TimelineEntry {
     id: string;
-    day: number;
     date: string;
     question: string;
     category: string;
@@ -39,39 +38,62 @@ function formatDate(dateStr: string): string {
     });
 }
 
+function getWeekRange(date: Date): { start: string; end: string } {
+    const day = date.getDay();
+    const start = new Date(date);
+    start.setDate(start.getDate() - day);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { start: fmt(start), end: fmt(end) };
+}
+
 // ─── Screen ───────────────────────────────────────────
 export default function TimelineScreen() {
     const router = useRouter();
-    const [memories, setMemories] = useState<TimelineEntry[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
 
-    // Fetch real timeline data
+    // Cache: Map<date, TimelineEntry>
+    const cacheRef = useRef<Map<string, TimelineEntry>>(new Map());
+    const [markedDates, setMarkedDates] = useState<Set<string>>(new Set());
+    const [selectedMemory, setSelectedMemory] = useState<TimelineEntry | null>(null);
+
+    // Fetch week data and merge into cache
+    const fetchWeekData = useCallback(async (weekStart: string, weekEnd: string) => {
+        try {
+            const data = await QuestionService.getTimelineForWeek(weekStart, weekEnd);
+            data.forEach(entry => cacheRef.current.set(entry.date, entry));
+            // Update marked dates
+            setMarkedDates(new Set(cacheRef.current.keys()));
+            // Update selected memory if it's in the new data
+            setSelectedMemory(cacheRef.current.get(selectedDate) || null);
+        } catch (err) {
+            console.error('Timeline load error:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedDate]);
+
+    // Load current week on mount
     useEffect(() => {
-        (async () => {
-            try {
-                const data = await QuestionService.getTimeline();
-                setMemories(data);
-            } catch (err) {
-                console.error('Timeline load error:', err);
-            } finally {
-                setLoading(false);
-            }
-        })();
+        const { start, end } = getWeekRange(new Date());
+        fetchWeekData(start, end);
     }, []);
 
-    const markedDates = useMemo(
-        () => new Set(memories.map(m => m.date)),
-        [memories],
-    );
+    // When day changes, read from cache (instant)
+    const handleDateSelect = useCallback((date: string) => {
+        setSelectedDate(date);
+        setSelectedMemory(cacheRef.current.get(date) || null);
+    }, []);
 
-    const selectedMemory = useMemo(
-        () => memories.find(m => m.date === selectedDate),
-        [selectedDate, memories],
-    );
+    // When week changes via swipe, fetch that week
+    const handleWeekChange = useCallback((weekStart: string, weekEnd: string) => {
+        fetchWeekData(weekStart, weekEnd);
+    }, [fetchWeekData]);
 
     return (
         <GradientBackground>
@@ -89,7 +111,8 @@ export default function TimelineScreen() {
                 {/* Calendar */}
                 <WeekCalendar
                     selectedDate={selectedDate}
-                    onDateSelect={setSelectedDate}
+                    onDateSelect={handleDateSelect}
+                    onWeekChange={handleWeekChange}
                     markedDates={markedDates}
                 />
 
@@ -108,9 +131,6 @@ export default function TimelineScreen() {
                         <Animated.View entering={FadeInUp.duration(500)} key={selectedMemory.id}>
                             {/* Day badge */}
                             <View style={styles.dayRow}>
-                                <Text style={styles.dayBadge}>
-                                    Day {selectedMemory.day}
-                                </Text>
                                 <Text style={styles.dateLabel}>
                                     {formatDate(selectedMemory.date)}
                                 </Text>

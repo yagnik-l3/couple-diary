@@ -4,7 +4,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import StreakBadge from '@/components/StreakBadge';
-import { getLevelForStreak, getStreakProgress } from '@/constants/levels';
+import { getLevelForStreak } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { ms } from '@/utils/scale';
@@ -22,11 +22,11 @@ import {
 } from 'react-native';
 import Animated, {
     FadeIn,
+    FadeInLeft,
+    FadeInRight,
     FadeInUp,
-    FadeOut,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
+    FadeOutLeft,
+    FadeOutRight
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -34,10 +34,9 @@ const { width } = Dimensions.get('window');
 // ─── Menu Items ───────────────────────────────────────
 const MENU_ITEMS = [
     { id: 'journal', icon: '📓', label: 'Journal', route: '/(main)/journal' },
-    { id: 'timeline', icon: '📜', label: 'Timeline', route: '/(main)/timeline' },
+    // Timeline removed as it is now linked to the streak badge
     { id: 'levels', icon: '🗺️', label: 'Levels', route: '/(main)/levels' },
     { id: 'notifications', icon: '🔔', label: 'Notifications', route: '/(main)/notifications' },
-    // { id: 'profile', icon: '👤', label: 'Profile', route: '/(main)/profile' },
     { id: 'settings', icon: '⚙️', label: 'Settings', route: '/(main)/settings' },
 ] as const;
 
@@ -49,7 +48,7 @@ export default function HomeScreen() {
     const [dailyId, setDailyId] = useState('');
 
     const currentLevel = getLevelForStreak(state.streakCount);
-    const progress = getStreakProgress(state.streakCount);
+    // const progress = getStreakProgress(state.streakCount); // Unused
 
     // Check today's answer status on mount
     useEffect(() => {
@@ -76,6 +75,11 @@ export default function HomeScreen() {
                         lives: profile.lives || 1,
                         hasPartner: true,
                         questionsAnswered: profile.questions_answered || 0,
+                        avatarUrl: profile.avatar_url || '',
+                        partnerAvatarUrl: profile.partner_avatar_url || '',
+                        reminderTime: profile.reminder_time || '',
+                        coupleVibe: profile.couple_vibe || '',
+                        coupleEditorId: profile.editor_user_id || '',
                     });
                 }
 
@@ -100,45 +104,17 @@ export default function HomeScreen() {
         })();
     }, []);
 
-    // Animated menu scale
-    const menuScale = useSharedValue(0);
-    const menuOpacity = useSharedValue(0);
-
     const toggleMenu = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (menuOpen) {
-            menuScale.value = withSpring(0, { damping: 15, stiffness: 200 });
-            menuOpacity.value = withSpring(0, { damping: 15, stiffness: 200 });
-            setMenuOpen(false);
-        } else {
-            setMenuOpen(true);
-            menuScale.value = withSpring(1, { damping: 14, stiffness: 160, mass: 0.8 });
-            menuOpacity.value = withSpring(1, { damping: 14, stiffness: 160 });
-        }
-    };
-
-    const closeMenu = () => {
-        if (!menuOpen) return;
-        menuScale.value = withSpring(0, { damping: 15, stiffness: 200 });
-        menuOpacity.value = withSpring(0, { damping: 15, stiffness: 200 });
-        setMenuOpen(false);
+        setMenuOpen(prev => !prev);
     };
 
     const handleMenuItemPress = (route: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        closeMenu();
-        setTimeout(() => {
-            router.push(route as any);
-        }, 150);
+        // Small delay to allow ripple/animation if needed, but immediate feels snappier
+        router.push(route as any);
+        setMenuOpen(false);
     };
-
-    const menuAnimStyle = useAnimatedStyle(() => ({
-        transform: [
-            { scale: menuScale.value },
-            { translateY: (1 - menuScale.value) * 20 },
-        ],
-        opacity: menuOpacity.value,
-    }));
 
     return (
         <GradientBackground>
@@ -156,7 +132,10 @@ export default function HomeScreen() {
                                 {currentLevel.icon} {currentLevel.title}
                             </Text>
                         </View>
-                        <StreakBadge count={state.streakCount} size="sm" />
+                        {/* Streak Badge - Linked to Timeline */}
+                        <TouchableOpacity onPress={() => router.push('/(main)/timeline')}>
+                            <StreakBadge count={state.streakCount} size="sm" />
+                        </TouchableOpacity>
                     </View>
                 </Animated.View>
 
@@ -167,63 +146,74 @@ export default function HomeScreen() {
                     <Text style={styles.galaxyLabel}>Day {state.streakCount} of Your Universe</Text>
                 </Animated.View>
 
-                {/* Backdrop overlay when menu is open */}
+                {/* Backdrop overlay when menu is open (Optional: prevents galaxy interaction) */}
                 {menuOpen && (
-                    <Animated.View
-                        entering={FadeIn.duration(200)}
-                        exiting={FadeOut.duration(200)}
-                        style={StyleSheet.absoluteFill}
-                    >
-                        <Pressable style={StyleSheet.absoluteFill} onPress={closeMenu} />
-                    </Animated.View>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} />
                 )}
 
-                {/* Menu popup card — anchored above the floating buttons */}
-                <Animated.View style={[styles.menuPopup, menuAnimStyle]} pointerEvents={menuOpen ? 'auto' : 'none'}>
-                    {MENU_ITEMS.map((item, i) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            style={[
-                                styles.menuItem,
-                                i < MENU_ITEMS.length - 1 && styles.menuItemBorder,
-                            ]}
-                            onPress={() => handleMenuItemPress(item.route)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.menuItemIcon}>{item.icon}</Text>
-                            <Text style={styles.menuItemLabel}>{item.label}</Text>
-                            <Text style={styles.menuItemArrow}>›</Text>
-                        </TouchableOpacity>
-                    ))}
-                </Animated.View>
-
-                {/* Floating bottom buttons */}
+                {/* Unified Footer Bar */}
                 <Animated.View entering={FadeInUp.delay(800).duration(800)} style={styles.floatingBar}>
-                    <TouchableOpacity
-                        style={[styles.menuButton, menuOpen && styles.menuButtonActive]}
-                        onPress={toggleMenu}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={styles.menuButtonText}>{menuOpen ? '✕' : '☰'}</Text>
-                    </TouchableOpacity>
+                    <View style={[styles.unifiedFooter, menuOpen && styles.unifiedFooterActive]}>
+                        {/* Menu Toggle Button */}
+                        <TouchableOpacity
+                            style={[styles.menuButton, menuOpen && styles.menuButtonActive]}
+                            onPress={toggleMenu}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.menuButtonText}>{menuOpen ? '✕' : '☰'}</Text>
+                        </TouchableOpacity>
 
-                    <GlowButton
-                        title={
-                            ctaState === 'waiting' ? 'Waiting for Partner 💫' :
-                                ctaState === 'reveal' ? 'See Today\'s Reveal ✨' :
-                                    'Today\'s Question ✨'
-                        }
-                        onPress={() => {
-                            if (ctaState === 'waiting') {
-                                router.push({ pathname: '/(main)/waiting', params: { daily_id: dailyId } } as any);
-                            } else if (ctaState === 'reveal') {
-                                router.push({ pathname: '/(main)/reveal', params: { daily_id: dailyId } } as any);
-                            } else {
-                                router.push('/(main)/question');
-                            }
-                        }}
-                        style={styles.ctaButton}
-                    />
+                        {/* Dynamic Content Area: CTA Button OR Horizontal Menu */}
+                        <View style={styles.dynamicFooterContent}>
+                            {!menuOpen ? (
+                                <Animated.View
+                                    key="cta-button"
+                                    entering={FadeInRight.duration(300)}
+                                    exiting={FadeOutRight.duration(200)}
+                                    style={styles.ctaContainer}
+                                >
+                                    <GlowButton
+                                        title={
+                                            ctaState === 'waiting' ? 'Waiting for Partner 💫' :
+                                                ctaState === 'reveal' ? 'See Today\'s Reveal ✨' :
+                                                    'Today\'s Question ✨'
+                                        }
+                                        onPress={() => {
+                                            if (ctaState === 'waiting') {
+                                                router.push({ pathname: '/(main)/waiting', params: { daily_id: dailyId } } as any);
+                                            } else if (ctaState === 'reveal') {
+                                                router.push({ pathname: '/(main)/reveal', params: { daily_id: dailyId } } as any);
+                                            } else {
+                                                router.push('/(main)/question');
+                                            }
+                                        }}
+                                        style={styles.ctaButton}
+                                    />
+                                </Animated.View>
+                            ) : (
+                                <Animated.View
+                                    key="horizontal-menu"
+                                    entering={FadeInLeft.duration(300)}
+                                    exiting={FadeOutLeft.duration(200)}
+                                    style={styles.horizontalMenu}
+                                >
+                                    {MENU_ITEMS.map((item) => (
+                                        <TouchableOpacity
+                                            key={item.id}
+                                            style={styles.horizontalMenuItem}
+                                            onPress={() => handleMenuItemPress(item.route)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <View style={styles.menuIconCircle}>
+                                                <Text style={styles.horizontalMenuIcon}>{item.icon}</Text>
+                                            </View>
+                                            <Text style={styles.horizontalMenuLabel}>{item.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </Animated.View>
+                            )}
+                        </View>
+                    </View>
                 </Animated.View>
             </View>
         </GradientBackground>
@@ -273,72 +263,80 @@ const styles = StyleSheet.create({
 
     // ─── Floating Bottom Bar ─────────────────────────
     floatingBar: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: Spacing.md,
         paddingBottom: 36,
         zIndex: 20,
     },
-    menuButton: {
-        width: 48,
-        height: 48,
-        borderRadius: Radius.xl,
+    unifiedFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.cardBg,
+        borderRadius: Radius.full,
         borderWidth: 1,
         borderColor: Colors.glassBorder,
-        alignItems: 'center',
-        justifyContent: 'center',
+        padding: 7, // More room
+        gap: 8,
         ...Shadows.soft,
+        minHeight: 74, // Final height boost
     },
-    menuButtonActive: {
-        backgroundColor: Colors.white15,
+    unifiedFooterActive: {
+        backgroundColor: Colors.cardBgSolid,
         borderColor: Colors.softPink,
     },
+    menuButton: {
+        width: 60, // Scaled up
+        height: 60,
+        borderRadius: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    menuButtonActive: {
+        backgroundColor: Colors.white08,
+    },
     menuButtonText: {
-        fontSize: ms(20),
+        fontSize: ms(22),
         color: Colors.textPrimary,
+    },
+
+    // ─── Dynamic Footer Content ──────────────────────
+    dynamicFooterContent: {
+        flex: 1,
+        height: 60, // Match button height
+        justifyContent: 'center',
+    },
+    ctaContainer: {
+        flex: 1,
+        height: '100%',
     },
     ctaButton: {
         flex: 1,
+        borderRadius: Radius.full,
     },
 
-    // ─── Menu Popup ──────────────────────────────────
-    menuPopup: {
-        position: 'absolute',
-        bottom: 100,
-        left: Spacing.lg,
-        width: 210,
-        backgroundColor: Colors.cardBgSolid,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
-        paddingVertical: Spacing.xs,
-        zIndex: 30,
-        ...Shadows.glow,
-        transformOrigin: 'bottom left',
-    },
-    menuItem: {
+    // ─── Horizontal Menu ─────────────────────────────
+    horizontalMenu: {
         flexDirection: 'row',
+        justifyContent: 'space-around',
         alignItems: 'center',
-        paddingVertical: Spacing.md - 2,
-        paddingHorizontal: Spacing.lg,
-        gap: Spacing.md,
-    },
-    menuItemBorder: {
-        borderBottomWidth: 1,
-        borderBottomColor: Colors.white08,
-    },
-    menuItemIcon: {
-        fontSize: ms(18),
-    },
-    menuItemLabel: {
-        ...Typography.bodyMedium,
-        fontSize: ms(14),
-        color: Colors.textPrimary,
         flex: 1,
+        paddingRight: Spacing.sm,
     },
-    menuItemArrow: {
-        fontSize: ms(18),
-        color: Colors.textMuted,
+    horizontalMenuItem: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 50,
+    },
+    menuIconCircle: {
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    horizontalMenuIcon: {
+        fontSize: ms(20), // Slightly larger
+        marginBottom: 2,
+    },
+    horizontalMenuLabel: {
+        ...Typography.caption,
+        fontSize: 10,
+        color: Colors.textSecondary,
+        fontWeight: '500',
     },
 });

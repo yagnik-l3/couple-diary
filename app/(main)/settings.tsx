@@ -146,7 +146,7 @@ export default function SettingsScreen() {
                             onToggle={setDailyReminder}
                         />
                         <View style={styles.rowDivider} />
-                        <SettingRow
+                        {/* <SettingRow
                             icon="🔊"
                             label="Sound Effects"
                             value={soundEffects}
@@ -158,7 +158,7 @@ export default function SettingsScreen() {
                             label="Haptic Feedback"
                             value={haptics}
                             onToggle={setHaptics}
-                        />
+                        /> */}
                     </FloatingCard>
                 </Animated.View>
 
@@ -166,8 +166,8 @@ export default function SettingsScreen() {
                 <Animated.View entering={FadeInUp.delay(300).duration(500)}>
                     <Text style={styles.sectionTitle}>Preferences</Text>
                     <FloatingCard style={styles.sectionCard}>
-                        <SettingRow icon="🎨" label="Theme Selection" onPress={() => { }} showArrow />
-                        <View style={styles.rowDivider} />
+                        {/* <SettingRow icon="🎨" label="Theme Selection" onPress={() => { }} showArrow /> */}
+                        {/* <View style={styles.rowDivider} /> */}
                         <SettingRow icon="🔐" label="Privacy" onPress={() => { }} showArrow />
                     </FloatingCard>
                 </Animated.View>
@@ -177,11 +177,14 @@ export default function SettingsScreen() {
                     <Text style={styles.sectionTitle}>Data</Text>
                     <FloatingCard style={styles.sectionCard}>
                         <SettingRow icon="📦" label="Export Memories" onPress={() => { }} showArrow />
+                        <View style={styles.rowDivider} />
+                        <SettingRow icon="📦" label="Export Journal" onPress={() => { }} showArrow />
                     </FloatingCard>
                 </Animated.View>
 
                 {/* Danger Zone */}
                 <Animated.View entering={FadeInUp.delay(500).duration(500)}>
+                    <Text style={styles.sectionTitle}>Danger Zone</Text>
                     <FloatingCard style={{ ...styles.sectionCard, ...styles.dangerCard }}>
                         <SettingRow
                             icon="🚪"
@@ -191,6 +194,25 @@ export default function SettingsScreen() {
                                     { text: 'Cancel', style: 'cancel' },
                                     {
                                         text: 'Log Out',
+                                        style: 'destructive',
+                                        onPress: () => {
+                                            reset();
+                                            router.replace('/onboarding');
+                                        },
+                                    },
+                                ]);
+                            }}
+                            danger
+                            showArrow
+                        />
+                        <SettingRow
+                            icon="🗑️"
+                            label="Delete Account"
+                            onPress={() => {
+                                Alert.alert('Delete Account', 'Are you sure you want to delete your account?', [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                        text: 'Delete Account',
                                         style: 'destructive',
                                         onPress: () => {
                                             reset();

@@ -1,14 +1,17 @@
 import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { pickAndCropAvatar } from '@/utils/avatarService';
 import { useAppState } from '@/utils/store';
-import { updateCoupleData, updateProfile } from '@/utils/supabase';
+import { getProfile, getUserId, updateCoupleData, updateProfile } from '@/utils/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -38,38 +41,95 @@ const TOPIC_OPTIONS = [
     { id: 'gratitude', label: 'Gratitude', icon: '🙏' },
 ];
 
+const VIBE_OPTIONS = [
+    { id: 'chill', label: 'Chill & Relaxed', icon: '😌' },
+    { id: 'romantic', label: 'Hopeless Romantics', icon: '💘' },
+    { id: 'adventurous', label: 'Adventurous', icon: '🌍' },
+    { id: 'intellectual', label: 'Deep Thinkers', icon: '🧠' },
+    { id: 'playful', label: 'Playful & Silly', icon: '🤪' },
+    { id: 'growth', label: 'Growth Oriented', icon: '🌱' },
+];
+
+const REMINDER_OPTIONS = [
+    { id: '09:00', label: 'Morning', sub: '9:00 AM', icon: '☀️' },
+    { id: '18:00', label: 'Evening', sub: '6:00 PM', icon: '🌆' },
+    { id: '21:00', label: 'Night', sub: '9:00 PM', icon: '🌙' },
+];
+
 export default function EditProfileScreen() {
     const router = useRouter();
     const { state, update } = useAppState();
 
+    // Personal State
     const [firstName, setFirstName] = useState(state.userFirstName);
     const [lastName, setLastName] = useState(state.userLastName);
     const [gender, setGender] = useState(state.userGender || '');
-    const [relationshipDate, setRelationshipDate] = useState(state.relationshipDate ? new Date(state.relationshipDate) : new Date());
     const [birthDate, setBirthDate] = useState(state.userBirthDate ? new Date(state.userBirthDate) : new Date());
-    const [selectedTopics, setSelectedTopics] = useState<string[]>(state.topicPreferences || []);
+    const [reminderTime, setReminderTime] = useState(state.reminderTime || '');
 
-    // DateTimePicker visibility states
+    // Couple State
+    const [relationshipDate, setRelationshipDate] = useState(state.relationshipDate ? new Date(state.relationshipDate) : new Date());
+    const [selectedTopics, setSelectedTopics] = useState<string[]>(state.topicPreferences || []);
+    const [coupleVibe, setCoupleVibe] = useState(state.coupleVibe || '');
+
+    // Metadata
+    const [isEditor, setIsEditor] = useState(false);
+    const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+    const [partnerName, setPartnerName] = useState('Partner');
+
+    // UI State
     const [showRelPicker, setShowRelPicker] = useState(false);
     const [showBirthPicker, setShowBirthPicker] = useState(false);
-
     const [loading, setLoading] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState(state.avatarUrl || '');
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-    // Fetch latest profile data on mount to ensure we have the latest preferences
+    const handleAvatarPick = async () => {
+        setUploadingAvatar(true);
+        try {
+            const url = await pickAndCropAvatar();
+            if (url) {
+                setAvatarUrl(url);
+                update({ avatarUrl: url });
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to upload photo');
+        } finally {
+            setUploadingAvatar(false);
+        }
+    };
+
+    // Fetch latest profile data
     React.useEffect(() => {
         (async () => {
             try {
-                const { getProfile } = require('@/utils/supabase');
+                const userId = await getUserId();
                 const profile = await getProfile();
-                if (profile) {
+                if (profile && userId) {
                     setFirstName(profile.first_name || profile.name?.split(' ')[0] || '');
                     setLastName(profile.last_name || profile.name?.split(' ').slice(1).join(' ') || '');
                     setGender(profile.gender || '');
                     if (profile.relationship_date) setRelationshipDate(new Date(profile.relationship_date));
                     if (profile.birth_date) setBirthDate(new Date(profile.birth_date));
-                    if (profile.topic_preferences) setSelectedTopics(profile.topic_preferences);
+                    if (profile.reminder_time) setReminderTime(profile.reminder_time);
 
-                    // Sync with store just in case
+                    if (profile.topic_preferences) setSelectedTopics(profile.topic_preferences);
+                    if (profile.couple_vibe) setCoupleVibe(profile.couple_vibe);
+                    if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
+
+                    if (profile.partner_name) setPartnerName(profile.partner_name);
+
+                    // Determine if editor
+                    // If no editor set yet (old data), assume current user can edit for now or default to user_a logic if we had it
+                    // But our migration set defaults, so couple_editor_id should be present if paired
+                    if (profile.couple_editor_id) {
+                        setIsEditor(profile.couple_editor_id === userId);
+                    } else {
+                        // If not paired or something, user can edit their own stuff implies no couple data anyway
+                        setIsEditor(true);
+                    }
+
+                    // Sync store
                     update({
                         userFirstName: profile.first_name,
                         userLastName: profile.last_name,
@@ -77,15 +137,21 @@ export default function EditProfileScreen() {
                         relationshipDate: profile.relationship_date,
                         userBirthDate: profile.birth_date,
                         topicPreferences: profile.topic_preferences,
+                        coupleVibe: profile.couple_vibe,
+                        reminderTime: profile.reminder_time,
+                        coupleEditorId: profile.couple_editor_id,
                     });
                 }
             } catch (e) {
                 console.error('Failed to refresh profile', e);
+            } finally {
+                setIsLoadingProfile(false);
             }
         })();
     }, []);
 
     const toggleTopic = (id: string) => {
+        if (!isEditor) return;
         setSelectedTopics(prev =>
             prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
         );
@@ -96,28 +162,33 @@ export default function EditProfileScreen() {
 
         setLoading(true);
         try {
-            // Profile-specific fields (profiles table)
+            // 1. Update Profile (Personal)
             const profileUpdates = {
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 gender,
                 birth_date: birthDate.toISOString(),
-            };
+                reminder_time: reminderTime,
+            } as any;
+
             await updateProfile(profileUpdates);
 
-            // Couple-specific fields (couples table) - only if paired
-            try {
-                await updateCoupleData({
-                    relationship_date: relationshipDate.toISOString().split('T')[0],
-                    topic_preferences: selectedTopics,
-                });
-            } catch (coupleErr: any) {
-                // Silently skip if not paired yet
-                if (!coupleErr.message?.includes('Not paired')) {
-                    console.warn('Could not update couple data:', coupleErr);
+            // 2. Update Couple (Shared) - only if editor
+            if (isEditor) {
+                try {
+                    await updateCoupleData({
+                        relationship_date: relationshipDate.toISOString().split('T')[0],
+                        topic_preferences: selectedTopics,
+                        couple_vibe: coupleVibe,
+                    });
+                } catch (coupleErr: any) {
+                    if (!coupleErr.message?.includes('Not paired')) {
+                        console.warn('Could not update couple data:', coupleErr);
+                    }
                 }
             }
 
+            // 3. Update Local Store
             update({
                 userFirstName: firstName.trim(),
                 userLastName: lastName.trim(),
@@ -125,6 +196,8 @@ export default function EditProfileScreen() {
                 relationshipDate: relationshipDate.toISOString(),
                 userBirthDate: birthDate.toISOString(),
                 topicPreferences: selectedTopics,
+                coupleVibe,
+                reminderTime,
             });
 
             router.back();
@@ -169,7 +242,6 @@ export default function EditProfileScreen() {
             );
         }
 
-        // iOS
         return (
             <DateTimePicker
                 value={value}
@@ -189,6 +261,7 @@ export default function EditProfileScreen() {
     return (
         <GradientBackground>
             <StarBackground />
+
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -199,6 +272,7 @@ export default function EditProfileScreen() {
                     {loading ? <ActivityIndicator color={Colors.textPrimary} /> : <Text style={styles.saveText}>Save</Text>}
                 </TouchableOpacity>
             </View>
+
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -206,110 +280,190 @@ export default function EditProfileScreen() {
             >
                 <ScrollView contentContainerStyle={styles.content}>
 
-                    <Animated.View entering={FadeInUp.delay(100).duration(500)} style={styles.form}>
-                        {/* Email */}
-                        <Text style={styles.label}>Email</Text>
-                        <View style={styles.inputWrapper}>
-                            <Text style={styles.inputIcon}>📧</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={state.userEmail}
-                                onChangeText={setLastName}
-                                placeholder="Email"
-                                editable={false}
-                                placeholderTextColor={Colors.textMuted}
-                            />
+                    {isLoadingProfile ? (
+                        <View style={{ padding: Spacing.lg, gap: Spacing.lg }}>
+                            <View style={{ alignItems: 'center' }}><SkeletonLoader.Avatar size={100} /></View>
+                            <SkeletonLoader.Line height={50} />
+                            <SkeletonLoader.Line height={50} />
+                            <SkeletonLoader.Card height={200} />
                         </View>
+                    ) : (
+                        <Animated.View entering={FadeInUp.delay(100).duration(500)} style={styles.form}>
 
-                        {/* First Name */}
-                        <Text style={styles.label}>First Name</Text>
-                        <View style={styles.inputWrapper}>
-                            <Text style={styles.inputIcon}>✨</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={firstName}
-                                onChangeText={setFirstName}
-                                placeholder="First Name"
-                                placeholderTextColor={Colors.textMuted}
-                            />
-                        </View>
+                            {/* ─── SECTION 1: PERSONAL DETAILS ─────────────────── */}
+                            <Text style={styles.sectionTitle}>Personal Details</Text>
 
-                        {/* Last Name */}
-                        <Text style={styles.label}>Last Name</Text>
-                        <View style={styles.inputWrapper}>
-                            <Text style={styles.inputIcon}>🌟</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={lastName}
-                                onChangeText={setLastName}
-                                placeholder="Last Name"
-                                placeholderTextColor={Colors.textMuted}
-                            />
-                        </View>
-
-                        {/* Gender */}
-                        <Text style={styles.label}>Gender</Text>
-                        <View style={styles.genderGrid}>
-                            {GENDER_OPTIONS.map((g) => (
-                                <TouchableOpacity
-                                    key={g.id}
-                                    style={[styles.genderChip, gender === g.id && styles.genderChipSelected]}
-                                    onPress={() => setGender(g.id)}
-                                >
-                                    <Text style={styles.genderIcon}>{g.icon}</Text>
-                                    <Text style={[styles.genderLabel, gender === g.id && styles.genderLabelSelected]}>
-                                        {g.label}
-                                    </Text>
+                            {/* Avatar Picker */}
+                            <View style={styles.avatarSection}>
+                                <TouchableOpacity onPress={handleAvatarPick} disabled={uploadingAvatar} style={styles.avatarTouchable}>
+                                    <View style={styles.avatarContainer}>
+                                        {avatarUrl ? (
+                                            <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                                        ) : (
+                                            <View style={styles.avatarPlaceholder}>
+                                                <Text style={styles.avatarPlaceholderIcon}>👤</Text>
+                                            </View>
+                                        )}
+                                        {uploadingAvatar ? (
+                                            <View style={styles.avatarOverlay}>
+                                                <ActivityIndicator color="#fff" />
+                                            </View>
+                                        ) : (
+                                            <View style={styles.cameraIcon}>
+                                                <Text style={{ fontSize: 14 }}>📷</Text>
+                                            </View>
+                                        )}
+                                    </View>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                                <Text style={styles.avatarHint}>Tap to change photo</Text>
+                            </View>
 
-                        {/* Topic Preferences */}
-                        <Text style={styles.label}>Daily Question Topics</Text>
-                        <View style={styles.genderGrid}>
-                            {TOPIC_OPTIONS.map((t) => {
-                                const isSelected = selectedTopics.includes(t.id);
-                                return (
+                            {/* Email */}
+                            <Text style={styles.label}>Email</Text>
+                            <View style={styles.inputWrapper}>
+                                <Text style={styles.inputIcon}>📧</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={state.userEmail}
+                                    editable={false}
+                                    placeholderTextColor={Colors.textMuted}
+                                />
+                            </View>
+
+                            {/* Names */}
+                            <View style={styles.row}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>First Name</Text>
+                                    <View style={styles.inputWrapper}>
+                                        <TextInput
+                                            style={styles.input}
+                                            value={firstName}
+                                            onChangeText={setFirstName}
+                                            placeholder="First Name"
+                                            placeholderTextColor={Colors.textMuted}
+                                        />
+                                    </View>
+                                </View>
+                                <View style={{ width: Spacing.md }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.label}>Last Name</Text>
+                                    <View style={styles.inputWrapper}>
+                                        <TextInput
+                                            style={styles.input}
+                                            value={lastName}
+                                            onChangeText={setLastName}
+                                            placeholder="Last Name"
+                                            placeholderTextColor={Colors.textMuted}
+                                        />
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Gender */}
+                            <Text style={styles.label}>Gender</Text>
+                            <View style={styles.grid}>
+                                {GENDER_OPTIONS.map((g) => (
                                     <TouchableOpacity
-                                        key={t.id}
-                                        style={[styles.genderChip, isSelected && styles.genderChipSelected]}
-                                        onPress={() => toggleTopic(t.id)}
+                                        key={g.id}
+                                        style={[styles.chip, gender === g.id && styles.chipSelected]}
+                                        onPress={() => setGender(g.id)}
                                     >
-                                        <Text style={styles.genderIcon}>{t.icon}</Text>
-                                        <Text style={[styles.genderLabel, isSelected && styles.genderLabelSelected]}>
-                                            {t.label}
+                                        <Text style={styles.chipIcon}>{g.icon}</Text>
+                                        <Text style={[styles.chipLabel, gender === g.id && styles.chipLabelSelected]}>
+                                            {g.label}
                                         </Text>
-                                        {isSelected && <Text style={{ color: Colors.softPink, marginLeft: 4 }}>✓</Text>}
                                     </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                        <Text style={styles.helperText}>Select at least 3 topics</Text>
+                                ))}
+                            </View>
 
-                        {/* Relationship Date */}
-                        <Text style={styles.label}>Relationship Start Date</Text>
-                        <FloatingCard style={styles.inputCardRow}>
-                            {renderDatePicker(relationshipDate, setRelationshipDate, showRelPicker, setShowRelPicker, new Date())}
-                        </FloatingCard>
+                            {/* Birthdate */}
+                            <Text style={styles.label}>Birthdate</Text>
+                            <FloatingCard style={styles.inputCardRow}>
+                                {renderDatePicker(birthDate, setBirthDate, showBirthPicker, setShowBirthPicker, new Date())}
+                            </FloatingCard>
 
-                        {/* Birthdate */}
-                        <Text style={styles.label}>Birthdate</Text>
-                        <FloatingCard style={styles.inputCardRow}>
-                            {renderDatePicker(birthDate, setBirthDate, showBirthPicker, setShowBirthPicker, new Date())}
-                        </FloatingCard>
+                            {/* Reminder Time */}
+                            <Text style={styles.label}>Daily Reminder Time</Text>
+                            <View style={styles.grid}>
+                                {REMINDER_OPTIONS.map((opt) => (
+                                    <TouchableOpacity
+                                        key={opt.id}
+                                        style={[styles.cardOption, reminderTime === opt.id && styles.cardOptionSelected]}
+                                        onPress={() => setReminderTime(opt.id)}
+                                    >
+                                        <Text style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</Text>
+                                        <Text style={styles.cardTitle}>{opt.label}</Text>
+                                        <Text style={styles.cardSub}>{opt.sub}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
 
-                        {/* Email (Read Only) */}
-                        {/* <Text style={styles.label}>Email</Text>
-                        <FloatingCard style={[styles.inputCard, styles.disabledCard]}>
-                            <TextInput
-                                style={[styles.input, styles.disabledInput]}
-                                value={state.userEmail}
-                                editable={false}
-                            />
-                        </FloatingCard> */}
+                            <View style={styles.divider} />
 
+                            {/* ─── SECTION 2: COUPLE SETTINGS ───────────────────── */}
+                            <View style={styles.sectionHeader}>
+                                <Text style={styles.sectionTitle}>Couple Settings</Text>
+                                {!isEditor && (
+                                    <View style={styles.lockedBadge}>
+                                        <Text style={styles.lockedText}>🔒 Managed by {partnerName}</Text>
+                                    </View>
+                                )}
+                            </View>
 
-                    </Animated.View>
+                            {/* Relationship Date */}
+                            <Text style={styles.label}>Relationship Start Date</Text>
+                            <FloatingCard style={[styles.inputCardRow, !isEditor && styles.disabledContainer]}>
+                                {isEditor ? (
+                                    renderDatePicker(relationshipDate, setRelationshipDate, showRelPicker, setShowRelPicker, new Date())
+                                ) : (
+                                    <Text style={styles.dateButtonText}>{formatDate(relationshipDate)}</Text>
+                                )}
+                            </FloatingCard>
+
+                            {/* Couple Vibe */}
+                            <Text style={styles.label}>Couple Vibe</Text>
+                            <View style={[styles.grid, !isEditor && { opacity: 0.6 }]}>
+                                {VIBE_OPTIONS.map((v) => (
+                                    <TouchableOpacity
+                                        key={v.id}
+                                        disabled={!isEditor}
+                                        style={[styles.chip, coupleVibe === v.id && styles.chipSelected]}
+                                        onPress={() => setCoupleVibe(v.id)}
+                                    >
+                                        <Text style={styles.chipIcon}>{v.icon}</Text>
+                                        <Text style={[styles.chipLabel, coupleVibe === v.id && styles.chipLabelSelected]}>
+                                            {v.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {/* Topic Preferences */}
+                            <Text style={styles.label}>Daily Question Topics</Text>
+                            <View style={[styles.grid, !isEditor && { opacity: 0.6 }]}>
+                                {TOPIC_OPTIONS.map((t) => {
+                                    const isSelected = selectedTopics.includes(t.id);
+                                    return (
+                                        <TouchableOpacity
+                                            key={t.id}
+                                            disabled={!isEditor}
+                                            style={[styles.chip, isSelected && styles.chipSelected]}
+                                            onPress={() => toggleTopic(t.id)}
+                                        >
+                                            <Text style={styles.chipIcon}>{t.icon}</Text>
+                                            <Text style={[styles.chipLabel, isSelected && styles.chipLabelSelected]}>
+                                                {t.label}
+                                            </Text>
+                                            {isSelected && <Text style={{ color: Colors.softPink, marginLeft: 4 }}>✓</Text>}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                            <Text style={styles.helperText}>{isEditor ? 'Select at least 3 topics' : 'Partner edits these preferences'}</Text>
+
+                            <View style={{ height: 40 }} />
+                        </Animated.View>
+                    )}
                 </ScrollView>
             </KeyboardAvoidingView>
         </GradientBackground>
@@ -353,6 +507,33 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         marginTop: Spacing.md,
     },
+    sectionTitle: {
+        ...Typography.h3,
+        color: Colors.textPrimary,
+        marginBottom: Spacing.sm,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: Spacing.sm,
+    },
+    lockedBadge: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    lockedText: {
+        ...Typography.caption,
+        color: Colors.textSecondary,
+        fontSize: 10,
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        marginVertical: Spacing.xl,
+    },
     label: {
         ...Typography.caption,
         color: Colors.textMuted,
@@ -367,11 +548,10 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         marginLeft: 4,
     },
-    // Matches onboarding.tsx inputWrapper
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.inputBg || Colors.white08, // Fallback if inputBg not defined in theme yet, but onboarding uses it
+        backgroundColor: Colors.inputBg || Colors.white08,
         borderRadius: Radius.md,
         borderWidth: 1,
         borderColor: Colors.inputBorder || Colors.white08,
@@ -389,26 +569,23 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
         paddingVertical: Spacing.md,
     },
-    inputCard: {
-        padding: Spacing.md,
-    },
     inputCardRow: {
         padding: Spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
     },
-    disabledCard: {
-        backgroundColor: 'rgba(255,255,255,0.03)',
+    disabledContainer: {
+        opacity: 0.6,
     },
-    disabledInput: {
-        color: Colors.textMuted,
+    row: {
+        flexDirection: 'row',
     },
-    genderGrid: {
+    grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: Spacing.sm,
     },
-    genderChip: {
+    chip: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: Spacing.sm,
@@ -419,21 +596,45 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'transparent',
     },
-    genderChipSelected: {
+    chipSelected: {
         backgroundColor: 'rgba(255, 105, 180, 0.15)',
         borderColor: Colors.softPink,
     },
-    genderIcon: {
+    chipIcon: {
         fontSize: 16,
     },
-    genderLabel: {
+    chipLabel: {
         ...Typography.caption,
         fontSize: 14,
         color: Colors.textSecondary,
     },
-    genderLabelSelected: {
+    chipLabelSelected: {
         color: Colors.textPrimary,
         fontWeight: '600',
+    },
+    cardOption: {
+        flex: 1,
+        minWidth: '30%',
+        backgroundColor: Colors.white08,
+        padding: Spacing.md,
+        borderRadius: Radius.md,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    cardOptionSelected: {
+        backgroundColor: 'rgba(255, 105, 180, 0.15)',
+        borderColor: Colors.softPink,
+    },
+    cardTitle: {
+        ...Typography.bodySemiBold,
+        fontSize: 14,
+        color: Colors.textPrimary,
+    },
+    cardSub: {
+        ...Typography.caption,
+        fontSize: 12,
+        color: Colors.textSecondary,
     },
     dateButton: {
         flex: 1,
@@ -442,5 +643,64 @@ const styles = StyleSheet.create({
         ...Typography.body,
         color: Colors.textPrimary,
         fontSize: 16,
+    },
+    avatarSection: {
+        alignItems: 'center',
+        marginBottom: Spacing.lg,
+    },
+    avatarTouchable: {
+        alignItems: 'center',
+    },
+    avatarContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        position: 'relative',
+    },
+    avatarImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 2,
+        borderColor: Colors.softPink,
+    },
+    avatarPlaceholder: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: Colors.white08,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: Colors.white08,
+    },
+    avatarPlaceholderIcon: {
+        fontSize: 40,
+    },
+    avatarOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        borderRadius: 50,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cameraIcon: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: Colors.softPink,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: Colors.deepNavy,
+    },
+    avatarHint: {
+        ...Typography.caption,
+        color: Colors.textMuted,
+        marginTop: Spacing.sm,
+        fontSize: 12,
     },
 });

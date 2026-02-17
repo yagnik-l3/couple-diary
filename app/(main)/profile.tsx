@@ -58,7 +58,7 @@ export default function ProfileScreen() {
 
                 {/* Avatar & Names */}
                 <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.profileSection}>
-                    <AvatarMerge size={80} />
+                    <AvatarMerge size={80} avatar1Uri={state.avatarUrl} avatar2Uri={state.partnerAvatarUrl} />
                     <Text style={styles.coupleNames}>
                         {state.userFirstName || 'You'} & {state.partnerName || 'Your Love'}
                     </Text>
@@ -113,7 +113,7 @@ export default function ProfileScreen() {
                             <Text style={styles.detailIcon}>{state.userGender ? GENDER_MAP[state.userGender]?.icon : '👤'}</Text>
                             <View style={styles.detailContent}>
                                 <Text style={styles.detailLabel}>Gender</Text>
-                                <Text style={styles.detailValue}>{state.userGender ? GENDER_MAP[state.userGender]?.label : 'Not specificied'}</Text>
+                                <Text style={styles.detailValue}>{state.userGender ? GENDER_MAP[state.userGender]?.label : 'Not specified'}</Text>
                             </View>
                         </View>
 
@@ -130,6 +130,33 @@ export default function ProfileScreen() {
 
                         <View style={styles.divider} />
 
+                        {/* Reminder Time */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>🔔</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={styles.detailLabel}>Daily Reminder</Text>
+                                <Text style={styles.detailValue}>
+                                    {state.reminderTime
+                                        ? (() => {
+                                            const t = state.reminderTime.split(':');
+                                            const h = parseInt(t[0]);
+                                            const ampm = h >= 12 ? 'PM' : 'AM';
+                                            const h12 = h % 12 || 12;
+                                            return `${h12}:${t[1]} ${ampm}`;
+                                        })()
+                                        : 'Not set'}
+                                </Text>
+                            </View>
+                        </View>
+
+                    </FloatingCard>
+                </Animated.View>
+
+                {/* Couple Details */}
+                <Animated.View entering={FadeInUp.delay(700).duration(600)}>
+                    <Text style={styles.sectionTitle}>Couple Details</Text>
+                    <FloatingCard style={styles.detailsCard}>
+
                         {/* Relationship Date */}
                         <View style={styles.detailRow}>
                             <Text style={styles.detailIcon}>📅</Text>
@@ -139,11 +166,23 @@ export default function ProfileScreen() {
                             </View>
                         </View>
 
+                        <View style={styles.divider} />
+
+                        {/* Couple Vibe */}
+                        <View style={styles.detailRow}>
+                            <Text style={styles.detailIcon}>✨</Text>
+                            <View style={styles.detailContent}>
+                                <Text style={[styles.detailValue, { textTransform: 'capitalize' }]}>
+                                    {state.coupleVibe ? state.coupleVibe.replace('-', ' ') : 'Not set'}
+                                </Text>
+                            </View>
+                        </View>
+
                     </FloatingCard>
                 </Animated.View>
 
                 {/* Topic Preferences */}
-                <Animated.View entering={FadeInUp.delay(700).duration(600)}>
+                <Animated.View entering={FadeInUp.delay(800).duration(600)}>
                     <Text style={styles.sectionTitle}>Daily Question Topics</Text>
                     <View style={styles.topicsGrid}>
                         {(state.topicPreferences || []).map((topicId) => (

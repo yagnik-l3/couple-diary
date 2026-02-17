@@ -51,6 +51,7 @@ function generateWeeks(centerDate: Date, range = 26): Date[][] {
 interface WeekCalendarProps {
     selectedDate: string;               // YYYY-MM-DD
     onDateSelect: (date: string) => void;
+    onWeekChange?: (weekStart: string, weekEnd: string) => void;
     markedDates?: Set<string>;          // dates with a dot indicator
 }
 
@@ -58,6 +59,7 @@ interface WeekCalendarProps {
 export default function WeekCalendar({
     selectedDate,
     onDateSelect,
+    onWeekChange,
     markedDates,
 }: WeekCalendarProps) {
     const todayStr = toDateStr(new Date());
@@ -81,13 +83,27 @@ export default function WeekCalendar({
         [onDateSelect],
     );
 
+    const lastWeekKeyRef = useRef<string>('');
+
     const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
         if (viewableItems.length > 0) {
             const middleWeek = viewableItems[Math.floor(viewableItems.length / 2)];
             if (middleWeek?.item) {
+                const days = middleWeek.item as Date[];
                 // Use the middle day of the week for the month label
-                const midDay = middleWeek.item[3] as Date;
+                const midDay = days[3];
                 setVisibleMonth(getMonthLabel(midDay));
+
+                // Notify parent about week change
+                if (onWeekChange) {
+                    const weekStart = toDateStr(days[0]);
+                    const weekEnd = toDateStr(days[6]);
+                    const weekKey = `${weekStart}_${weekEnd}`;
+                    if (weekKey !== lastWeekKeyRef.current) {
+                        lastWeekKeyRef.current = weekKey;
+                        onWeekChange(weekStart, weekEnd);
+                    }
+                }
             }
         }
     }).current;

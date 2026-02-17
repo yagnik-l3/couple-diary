@@ -7,6 +7,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { ms, vs } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboardingComplete, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -39,7 +40,7 @@ import Animated, {
 
 
 // ─── Step definitions ─────────────────────────────────
-type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'topics' | 'vibe' | 'reminder' | 'invite';
+type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'birthdate' | 'invite';
 
 interface Step {
     id: string;
@@ -57,9 +58,7 @@ const STEPS: Step[] = [
     { id: 'otp', type: 'otp', title: 'Enter your\nmagic code ✨', subtitle: 'Check your inbox for the magic code' },
     { id: 'name', type: 'name', title: 'What does your\npartner call you?', subtitle: 'This name will appear in your universe' },
     { id: 'gender', type: 'gender', title: 'Help us personalize\nyour universe', subtitle: 'This helps personalize your questions' },
-    { id: 'topics', type: 'topics', title: 'Choose what you\nlove talking about', subtitle: 'Pick 3 or more — you can change this anytime' },
-    { id: 'vibe', type: 'vibe', title: 'Your Couple\nVibe 💫', subtitle: 'How would you describe your relationship?' },
-    { id: 'reminder', type: 'reminder', title: 'When should we\nremind you? 🔔', subtitle: 'A daily nudge so you never miss a question' },
+    { id: 'birthdate', type: 'birthdate', icon: '🎂', title: 'When\'s your\nbirthday?', subtitle: 'We\'ll make it extra special' },
     { id: 'invite', type: 'invite', title: 'Invite Your\nOther Half', subtitle: 'Share your code or join theirs' },
 ];
 
@@ -219,9 +218,8 @@ export default function OnboardingScreen() {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [gender, setGender] = useState('');
-    const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
-    const [coupleVibe, setCoupleVibe] = useState('');
-    const [reminderTime, setReminderTime] = useState('');
+    const [birthDate, setBirthDate] = useState<Date | null>(null);
+    const [showBirthPicker, setShowBirthPicker] = useState(false);
     const [inviteCode, setInviteCode] = useState('');
     const [codeError, setCodeError] = useState('');
     const [codeCopied, setCodeCopied] = useState(false);
@@ -427,13 +425,11 @@ export default function OnboardingScreen() {
             case 'otp': return otp.every(d => d !== '');
             case 'name': return firstName.trim().length >= 2 && lastName.trim().length >= 1;
             case 'gender': return gender !== '';
-            case 'topics': return selectedTopics.length >= 3;
-            case 'vibe': return coupleVibe !== '';
-            case 'reminder': return reminderTime !== '';
+            case 'birthdate': return birthDate !== null;
             case 'invite': return inviteCode.trim().length === 6;
             default: return true;
         }
-    }, [currentStep.type, email, otp, firstName, lastName, gender, selectedTopics, coupleVibe, reminderTime, loading, inviteCode]);
+    }, [currentStep.type, email, otp, firstName, lastName, gender, birthDate, loading, inviteCode]);
 
     // ─── Complete Onboarding (join partner) ──────────────
     const finishOnboarding = async (withPartnerCode: string) => {
@@ -445,12 +441,8 @@ export default function OnboardingScreen() {
             // Join partner with their code
             const result = await joinPartner(withPartnerCode);
 
-            // Mark onboarding complete on server
-            await markOnboardingComplete();
-
             update({
                 hasPartner: true,
-                hasCompletedOnboarding: true,
                 partnerName: result.partnerName,
             });
 
@@ -472,12 +464,17 @@ export default function OnboardingScreen() {
             // Capture device timezone for notifications
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+            // Format birth_date as YYYY-MM-DD
+            const birthDateStr = birthDate
+                ? `${birthDate.getFullYear()}-${String(birthDate.getMonth() + 1).padStart(2, '0')}-${String(birthDate.getDate()).padStart(2, '0')}`
+                : undefined;
+
             const profile = await createProfile({
                 first_name: firstName.trim(),
                 last_name: lastName.trim(),
                 gender,
                 email: email || '',
-                reminder_time: reminderTime,
+                birth_date: birthDateStr,
                 timezone: tz,
             });
             setMyInviteCode(profile.invite_code);
@@ -487,9 +484,7 @@ export default function OnboardingScreen() {
                 userFirstName: firstName.trim(),
                 userLastName: lastName.trim(),
                 userGender: gender as any,
-                topicPreferences: selectedTopics,
-                coupleVibe: coupleVibe,
-                reminderTime: reminderTime,
+                userBirthDate: birthDateStr || '',
                 timezone: tz,
             });
             setActiveIndex(activeIndex + 1); // Go to Invite step
@@ -526,8 +521,8 @@ export default function OnboardingScreen() {
             return; // Wait for auto-submit or manual verify
         }
 
-        // Reminder -> Create Profile -> Invite
-        if (currentStep.type === 'reminder') {
+        // Birthdate -> Create Profile -> Invite
+        if (currentStep.type === 'birthdate') {
             createMyProfile();
             return;
         }
@@ -567,13 +562,6 @@ export default function OnboardingScreen() {
         await Clipboard.setStringAsync(myInviteCode);
         setCodeCopied(true);
         setTimeout(() => setCodeCopied(false), 2000);
-    };
-
-    // ─── Topic Toggle ─────────────────────────────────
-    const toggleTopic = (id: string) => {
-        setSelectedTopics(prev =>
-            prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
-        );
     };
 
     // ─── Button Label ─────────────────────────────────
@@ -715,70 +703,56 @@ export default function OnboardingScreen() {
                     </Animated.View>
                 );
 
-            case 'topics':
+            case 'birthdate':
                 return (
-                    <Animated.View key="topics" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                    <Animated.View key="birthdate" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
                         <Text style={styles.fieldTitle}>{currentStep.title}</Text>
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
-                        <View style={styles.topicGrid}>
-                            {TOPIC_OPTIONS.map((topic, i) => (
-                                <AnimatedTopicPill
-                                    key={topic.id}
-                                    label={topic.label}
-                                    icon={topic.icon}
-                                    selected={selectedTopics.includes(topic.id)}
-                                    onPress={() => toggleTopic(topic.id)}
-                                    index={i}
-                                />
-                            ))}
-                        </View>
-                        <Animated.Text
-                            entering={FadeIn.delay(600).duration(300)}
-                            style={styles.topicCount}
-                        >
-                            {selectedTopics.length} / 3 selected {selectedTopics.length >= 3 ? '✓' : ''}
-                        </Animated.Text>
-                    </Animated.View>
-                );
 
-            case 'vibe':
-                return (
-                    <Animated.View key="vibe" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
-                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
-                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
-                        <View style={styles.chipGrid}>
-                            {VIBE_OPTIONS.map((opt, i) => (
-                                <AnimatedChip
-                                    key={opt.id}
-                                    label={opt.label}
-                                    icon={opt.icon}
-                                    selected={coupleVibe === opt.id}
-                                    onPress={() => setCoupleVibe(opt.id)}
-                                    index={i}
+                        <Animated.View entering={FadeInUp.delay(200).duration(400).springify()} style={styles.birthdateContainer}>
+                            {Platform.OS === 'android' ? (
+                                <>
+                                    <TouchableOpacity
+                                        onPress={() => setShowBirthPicker(true)}
+                                        style={styles.birthdateButton}
+                                        activeOpacity={0.8}
+                                    >
+                                        <Text style={styles.birthdateIcon}>🎂</Text>
+                                        <Text style={styles.birthdateText}>
+                                            {birthDate
+                                                ? birthDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                                : 'Tap to select your birthday'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {showBirthPicker && (
+                                        <DateTimePicker
+                                            value={birthDate || new Date(2000, 0, 1)}
+                                            mode="date"
+                                            display="spinner"
+                                            maximumDate={new Date()}
+                                            minimumDate={new Date(1940, 0, 1)}
+                                            onChange={(event: any, selectedDate?: Date) => {
+                                                setShowBirthPicker(false);
+                                                if (selectedDate) setBirthDate(selectedDate);
+                                            }}
+                                        />
+                                    )}
+                                </>
+                            ) : (
+                                <DateTimePicker
+                                    value={birthDate || new Date(2000, 0, 1)}
+                                    mode="date"
+                                    display="spinner"
+                                    maximumDate={new Date()}
+                                    minimumDate={new Date(1940, 0, 1)}
+                                    onChange={(event: any, selectedDate?: Date) => {
+                                        if (selectedDate) setBirthDate(selectedDate);
+                                    }}
+                                    themeVariant="dark"
+                                    style={{ alignSelf: 'center' }}
                                 />
-                            ))}
-                        </View>
-                    </Animated.View>
-                );
-
-            case 'reminder':
-                return (
-                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
-                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
-                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
-                        <View style={styles.reminderRow}>
-                            {REMINDER_OPTIONS.map((opt, i) => (
-                                <ReminderCard
-                                    key={opt.id}
-                                    label={opt.label}
-                                    time={opt.time}
-                                    icon={opt.icon}
-                                    selected={reminderTime === opt.id}
-                                    onPress={() => setReminderTime(opt.id)}
-                                    index={i}
-                                />
-                            ))}
-                        </View>
+                            )}
+                        </Animated.View>
                     </Animated.View>
                 );
 
@@ -1258,6 +1232,33 @@ const styles = StyleSheet.create({
         ...Typography.bodyMedium,
         fontSize: ms(14),
         color: Colors.softPink,
+    },
+
+    // ─── Birthdate ────────────────────────────────────
+    birthdateContainer: {
+        alignItems: 'center',
+        marginTop: Spacing.lg,
+    },
+    birthdateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: Colors.white08,
+        borderRadius: Radius.md,
+        paddingVertical: Spacing.md,
+        paddingHorizontal: Spacing.lg,
+        borderWidth: 1,
+        borderColor: Colors.glassBorder,
+        minWidth: '80%',
+        justifyContent: 'center',
+    },
+    birthdateIcon: {
+        fontSize: ms(24),
+        marginRight: Spacing.sm,
+    },
+    birthdateText: {
+        ...Typography.bodySemiBold,
+        fontSize: ms(16),
+        color: Colors.textPrimary,
     },
 
 });

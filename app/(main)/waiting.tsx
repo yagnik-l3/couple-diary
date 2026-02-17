@@ -88,7 +88,7 @@ export default function WaitingScreen() {
     const cooldownMinutes = Math.ceil(cooldownRemaining / 60000);
 
     // ─── Nudge Handler ────────────────────────────────
-    const handleNudge = () => {
+    const handleNudge = async () => {
         if (isOnCooldown) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         nudgeScale.value = withSequence(
@@ -99,6 +99,27 @@ export default function WaitingScreen() {
         setNudgeSent(true);
         setCooldownRemaining(state.nudgeCooldownMinutes * 60 * 1000);
         setTimeout(() => setNudgeSent(false), 3000);
+
+        // Insert nudge into DB — this triggers a push notification via Postgres trigger
+        try {
+            const { supabase } = await import('@/utils/supabase');
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('couple_id')
+                    .eq('id', user.id)
+                    .single();
+                if (profile?.couple_id) {
+                    await supabase.from('nudges').insert({
+                        sender_id: user.id,
+                        couple_id: profile.couple_id,
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('Nudge insert error:', err);
+        }
     };
 
     const nudgeBtnStyle = useAnimatedStyle(() => ({

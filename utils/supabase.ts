@@ -118,7 +118,7 @@ export async function getProfile() {
             const partnerId = couple.user_a === user.id ? couple.user_b : couple.user_a;
             const { data: partner } = await supabase
                 .from('profiles')
-                .select('first_name, name')
+                .select('first_name, name, avatar_url')
                 .eq('id', partnerId)
                 .single();
             partnerProfile = partner;
@@ -138,10 +138,12 @@ export async function getProfile() {
         relationship_date: coupleData?.relationship_date || null,
         topic_preferences: coupleData?.topic_preferences || [],
         couple_vibe: coupleData?.couple_vibe || '',
+        couple_editor_id: coupleData?.editor_user_id || null,
         streak_count: coupleData?.streak_count || 0,
         best_streak: coupleData?.best_streak || 0,
         lives: coupleData?.lives || 1,
         partner_name: partnerProfile?.first_name || partnerProfile?.name || 'Partner',
+        partner_avatar_url: partnerProfile?.avatar_url || null,
         questions_answered: questionsAnswered || 0,
     };
 }
@@ -216,6 +218,19 @@ export async function updateProfile(updates: Record<string, any>) {
 
     if (error) throw error;
     return data;
+}
+
+/** Update push token for current user */
+export async function updatePushToken(pushToken: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ push_token: pushToken })
+        .eq('id', user.id);
+
+    if (error) console.warn('Failed to update push token:', error.message);
 }
 
 /** Mark onboarding as complete (called when partner connection confirmed) */

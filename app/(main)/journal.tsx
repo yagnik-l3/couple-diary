@@ -4,9 +4,9 @@ import WeekCalendar from '@/components/WeekCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import {
     getAllEntries,
-    getEntry,
     getTodayDate,
-    saveEntry,
+    getWeekEntries,
+    saveEntry
 } from '@/utils/journalStore';
 import { ms, vs } from '@/utils/scale';
 import { useRouter } from 'expo-router';
@@ -33,6 +33,16 @@ function formatDate(dateStr: string): string {
     });
 }
 
+function getWeekRange(date: Date): { start: string; end: string } {
+    const day = date.getDay(); // 0=Sun
+    const start = new Date(date);
+    start.setDate(start.getDate() - day);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { start: fmt(start), end: fmt(end) };
+}
+
 // ─── Main Screen ──────────────────────────────────────
 export default function JournalScreen() {
     const router = useRouter();
@@ -44,9 +54,12 @@ export default function JournalScreen() {
     const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const savedTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Week cache: Map<date, content>
+    const weekCacheRef = useRef<Map<string, string>>(new Map());
+
     const isToday = selectedDate === today;
 
-    // Load all entry dates on mount
+    // Load all entry dates on mount (for dot indicators)
     useEffect(() => {
         (async () => {
             const all = await getAllEntries();
@@ -54,19 +67,50 @@ export default function JournalScreen() {
         })();
     }, []);
 
-    // Load content for selected date
+    // Fetch current week's entries on mount
     useEffect(() => {
-        (async () => {
-            const entry = await getEntry(selectedDate);
-            setContent(entry?.content || '');
-            setSaveStatus('idle');
-        })();
+        const { start, end } = getWeekRange(new Date());
+        fetchWeekData(start, end);
+    }, []);
+
+    // Fetch week data and populate cache
+    const fetchWeekData = useCallback(async (weekStart: string, weekEnd: string) => {
+        try {
+            const entries = await getWeekEntries(weekStart, weekEnd);
+            const newCache = new Map<string, string>();
+            entries.forEach(e => newCache.set(e.date, e.content));
+            weekCacheRef.current = newCache;
+
+            // If selected date is in this week, update content from cache
+            if (weekCacheRef.current.has(selectedDate)) {
+                setContent(weekCacheRef.current.get(selectedDate) || '');
+            } else {
+                setContent('');
+            }
+        } catch (err) {
+            console.error('Failed to fetch week entries:', err);
+        }
     }, [selectedDate]);
+
+    // When day changes, read from cache (instant)
+    const handleDateSelect = useCallback((date: string) => {
+        setSelectedDate(date);
+        const cached = weekCacheRef.current.get(date);
+        setContent(cached ?? '');
+        setSaveStatus('idle');
+    }, []);
+
+    // When week changes via swipe, fetch that week's data
+    const handleWeekChange = useCallback((weekStart: string, weekEnd: string) => {
+        fetchWeekData(weekStart, weekEnd);
+    }, [fetchWeekData]);
 
     // Auto-save with 3s debounce
     const handleChange = useCallback(
         (text: string) => {
             setContent(text);
+            // Update cache locally
+            weekCacheRef.current.set(selectedDate, text);
             setSaveStatus('idle');
             if (saveTimeout.current) clearTimeout(saveTimeout.current);
             if (savedTimeout.current) clearTimeout(savedTimeout.current);
@@ -115,7 +159,8 @@ export default function JournalScreen() {
                     {/* Week Calendar */}
                     <WeekCalendar
                         selectedDate={selectedDate}
-                        onDateSelect={setSelectedDate}
+                        onDateSelect={handleDateSelect}
+                        onWeekChange={handleWeekChange}
                         markedDates={allDates}
                     />
 

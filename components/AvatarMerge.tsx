@@ -6,58 +6,47 @@ import { Image, ImageSourcePropType, StyleSheet, View } from 'react-native';
 interface Props {
     avatar1?: ImageSourcePropType;
     avatar2?: ImageSourcePropType;
+    avatar1Uri?: string;
+    avatar2Uri?: string;
     size?: number;
 }
 
-const DEFAULT_AVATAR_1 = '👤';
-const DEFAULT_AVATAR_2 = '👤';
-
-export default function AvatarMerge({ avatar1, avatar2, size = 60 }: Props) {
+export default function AvatarMerge({ avatar1, avatar2, avatar1Uri, avatar2Uri, size = 60 }: Props) {
     const avatarSize = size;
     const overlap = size * 0.3;
 
+    const renderAvatar = (
+        source: ImageSourcePropType | undefined,
+        uri: string | undefined,
+        gradientColors: readonly [string, string, ...string[]],
+        style?: any,
+    ) => (
+        <View style={[styles.avatarWrapper, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }, style]}>
+            {uri ? (
+                <Image
+                    source={{ uri }}
+                    style={[styles.image, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
+                />
+            ) : source ? (
+                <Image source={source} style={[styles.image, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]} />
+            ) : (
+                <LinearGradient
+                    colors={gradientColors}
+                    style={[styles.avatarInner, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
+                >
+                    <View style={styles.placeholder}>
+                        <View style={[styles.placeholderDot, { width: avatarSize * 0.3, height: avatarSize * 0.3, borderRadius: avatarSize * 0.15, top: avatarSize * 0.2 }]} />
+                        <View style={[styles.placeholderBody, { width: avatarSize * 0.5, height: avatarSize * 0.25, borderRadius: avatarSize * 0.25, bottom: avatarSize * 0.08 }]} />
+                    </View>
+                </LinearGradient>
+            )}
+        </View>
+    );
+
     return (
         <View style={[styles.container, { height: avatarSize }]}>
-            <View style={[styles.avatarWrapper, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}>
-                <LinearGradient
-                    colors={['#6C3DB8', '#9B4DCA']}
-                    style={[styles.avatarInner, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
-                >
-                    {avatar1 ? (
-                        <Image source={avatar1} style={styles.image} />
-                    ) : (
-                        <View style={styles.placeholder}>
-                            <View style={[styles.placeholderDot, { width: avatarSize * 0.3, height: avatarSize * 0.3, borderRadius: avatarSize * 0.15, top: avatarSize * 0.2 }]} />
-                            <View style={[styles.placeholderBody, { width: avatarSize * 0.5, height: avatarSize * 0.25, borderRadius: avatarSize * 0.25, bottom: avatarSize * 0.08 }]} />
-                        </View>
-                    )}
-                </LinearGradient>
-            </View>
-            <View
-                style={[
-                    styles.avatarWrapper,
-                    {
-                        width: avatarSize,
-                        height: avatarSize,
-                        borderRadius: avatarSize / 2,
-                        marginLeft: -overlap,
-                    },
-                ]}
-            >
-                <LinearGradient
-                    colors={[Colors.softPink, Colors.rosePink]}
-                    style={[styles.avatarInner, { width: avatarSize, height: avatarSize, borderRadius: avatarSize / 2 }]}
-                >
-                    {avatar2 ? (
-                        <Image source={avatar2} style={styles.image} />
-                    ) : (
-                        <View style={styles.placeholder}>
-                            <View style={[styles.placeholderDot, { width: avatarSize * 0.3, height: avatarSize * 0.3, borderRadius: avatarSize * 0.15, top: avatarSize * 0.2 }]} />
-                            <View style={[styles.placeholderBody, { width: avatarSize * 0.5, height: avatarSize * 0.25, borderRadius: avatarSize * 0.25, bottom: avatarSize * 0.08 }]} />
-                        </View>
-                    )}
-                </LinearGradient>
-            </View>
+            {renderAvatar(avatar1, avatar1Uri, ['#6C3DB8', '#9B4DCA'])}
+            {renderAvatar(avatar2, avatar2Uri, [Colors.softPink, Colors.rosePink], { marginLeft: -overlap })}
         </View>
     );
 }
