@@ -4,7 +4,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboardingComplete, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -760,7 +760,7 @@ export default function OnboardingScreen() {
                 return (
                     <Animated.View key="invite" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
                         <Animated.View entering={FadeIn.delay(100).duration(500)}>
-                            <AvatarMerge size={ms(60)} />
+                            <AvatarMerge size={s(60)} />
                         </Animated.View>
                         <Text style={[styles.fieldTitle, { marginTop: Spacing.lg }]}>{currentStep.title}</Text>
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
@@ -881,7 +881,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: vs(60),
+        paddingTop: s(60),
     },
 
     // ─── Top bar ──────────────────────────────────────
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     backArrow: {
-        fontSize: ms(24),
+        fontSize: s(24),
         color: Colors.textPrimary,
         marginTop: -2,
     },
@@ -925,7 +925,7 @@ const styles = StyleSheet.create({
     },
     stepIndicator: {
         ...Typography.caption,
-        fontSize: ms(11),
+        fontSize: s(11),
         color: Colors.textMuted,
         minWidth: 36,
         textAlign: 'right',
@@ -942,7 +942,7 @@ const styles = StyleSheet.create({
     },
     bottomContainer: {
         paddingHorizontal: Spacing.xl,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
         alignItems: 'center',
     },
     nextButton: {
@@ -954,22 +954,22 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     introIcon: {
-        fontSize: ms(72),
+        fontSize: s(72),
         marginBottom: Spacing.xl,
     },
     introTitle: {
         ...Typography.heading,
-        fontSize: ms(34),
+        fontSize: s(34),
         textAlign: 'center',
-        lineHeight: ms(44),
+        lineHeight: s(44),
         marginBottom: Spacing.lg,
     },
     introSubtitle: {
         ...Typography.body,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textSecondary,
         textAlign: 'center',
-        lineHeight: ms(24),
+        lineHeight: s(24),
     },
 
     // ─── Field screens ────────────────────────────────
@@ -978,14 +978,14 @@ const styles = StyleSheet.create({
     },
     fieldTitle: {
         ...Typography.heading,
-        fontSize: ms(28),
+        fontSize: s(28),
         textAlign: 'center',
-        lineHeight: ms(38),
+        lineHeight: s(38),
         marginBottom: Spacing.sm,
     },
     fieldSubtitle: {
         ...Typography.body,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: Spacing.xl,
@@ -1001,13 +1001,13 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     inputIcon: {
-        fontSize: ms(18),
+        fontSize: s(18),
         marginRight: Spacing.sm,
     },
     input: {
         flex: 1,
         ...Typography.body,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
         paddingVertical: Spacing.md,
     },
@@ -1025,14 +1025,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     otpInput: {
-        width: ms(44),
-        height: ms(52),
+        width: s(44),
+        height: s(52),
         borderRadius: Radius.md,
         borderWidth: 1.5,
         borderColor: Colors.inputBorder,
         backgroundColor: Colors.inputBg,
         ...Typography.heading,
-        fontSize: ms(24),
+        fontSize: s(24),
         color: Colors.textPrimary,
         textAlign: 'center',
     },
@@ -1042,7 +1042,7 @@ const styles = StyleSheet.create({
     },
     resendText: {
         ...Typography.bodyMedium,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.softPink,
     },
 
@@ -1067,11 +1067,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(199, 125, 184, 0.1)',
     },
     chipIcon: {
-        fontSize: ms(24),
+        fontSize: s(24),
     },
     chipLabel: {
         ...Typography.bodyMedium,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textSecondary,
         flex: 1,
     },
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
     chipCheck: {
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.softPink,
     },
 
@@ -1107,11 +1107,11 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(199, 125, 184, 0.12)',
     },
     topicIcon: {
-        fontSize: ms(16),
+        fontSize: s(16),
     },
     topicLabel: {
         ...Typography.bodyMedium,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textSecondary,
     },
     topicLabelSelected: {
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
     },
     topicCount: {
         ...Typography.bodySemiBold,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.softPink,
     },
 
@@ -1144,12 +1144,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(199, 125, 184, 0.1)',
     },
     reminderIcon: {
-        fontSize: ms(28),
+        fontSize: s(28),
         marginBottom: Spacing.xs,
     },
     reminderTime: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textSecondary,
     },
     reminderTimeSelected: {
@@ -1157,7 +1157,7 @@ const styles = StyleSheet.create({
     },
     reminderLabel: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
     },
     reminderLabelSelected: {
@@ -1171,7 +1171,7 @@ const styles = StyleSheet.create({
     },
     inviteLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         marginBottom: Spacing.sm,
         textAlign: 'center',
     },
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     },
     dividerText: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         marginHorizontal: Spacing.md,
     },
     shareCodeBox: {
@@ -1204,19 +1204,19 @@ const styles = StyleSheet.create({
     },
     shareCode: {
         ...Typography.bodySemiBold,
-        fontSize: ms(18),
+        fontSize: s(18),
         color: Colors.goldSparkle,
         letterSpacing: 3,
     },
     copyHint: {
         ...Typography.caption,
-        fontSize: ms(11),
+        fontSize: s(11),
         color: Colors.textMuted,
         marginTop: 4,
     },
     codeErrorText: {
         ...Typography.bodyMedium,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.danger,
         marginTop: Spacing.sm,
         textAlign: 'center',
@@ -1230,7 +1230,7 @@ const styles = StyleSheet.create({
     },
     shareLinkText: {
         ...Typography.bodyMedium,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.softPink,
     },
 
@@ -1252,12 +1252,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     birthdateIcon: {
-        fontSize: ms(24),
+        fontSize: s(24),
         marginRight: Spacing.sm,
     },
     birthdateText: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
     },
 

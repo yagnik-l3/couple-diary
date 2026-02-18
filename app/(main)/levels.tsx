@@ -2,7 +2,7 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { COUPLE_LEVELS, getLevelForStreak, getNextLevel } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -18,8 +18,8 @@ import {
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
-const NODE_SIZE = ms(56);
-const PATH_WIDTH = ms(600); // Fixed large width for consistent journey feel
+const NODE_SIZE = s(56);
+const PATH_WIDTH = s(600); // Fixed large width for consistent journey feel
 
 /**
  * Generate a zigzag X position for each level node.
@@ -28,7 +28,7 @@ const PATH_WIDTH = ms(600); // Fixed large width for consistent journey feel
  */
 function getNodeX(index: number): number {
     const minPadding = Spacing.lg;
-    const maxContentWidth = PATH_WIDTH - ms(180); // Reserve space for label + padding
+    const maxContentWidth = PATH_WIDTH - s(180); // Reserve space for label + padding
 
     const positions = [
         minPadding,
@@ -116,7 +116,7 @@ export default function LevelsScreen() {
                                 const showConnector = index < levels.length - 1;
                                 const nextX = getNodeX(index + 1);
 
-                                const vDist = vs(50) + NODE_SIZE;
+                                const vDist = s(50) + NODE_SIZE;
                                 const dx = nextX - nodeX;
                                 const distance = Math.sqrt(dx * dx + vDist * vDist);
                                 const angle = Math.atan2(vDist, dx);
@@ -135,7 +135,7 @@ export default function LevelsScreen() {
                                                     {
                                                         width: distance,
                                                         left: (nodeX + nextX + NODE_SIZE) / 2 - distance / 2,
-                                                        top: NODE_SIZE + vs(50) / 2,
+                                                        top: NODE_SIZE + s(50) / 2,
                                                         transform: [{ rotate: `${angle}rad` }],
                                                     },
                                                     isUnlocked && (state.streakCount >= (levels[index + 1]?.minStreak || 0)) && styles.connectorUnlocked,
@@ -178,7 +178,7 @@ export default function LevelsScreen() {
                                             </View>
                                         </View>
 
-                                        <View style={{ height: vs(50) }} />
+                                        <View style={{ height: s(50) }} />
                                     </Animated.View>
                                 );
                             })}
@@ -193,7 +193,7 @@ export default function LevelsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: vs(56),
+        paddingTop: s(56),
     },
     header: {
         flexDirection: 'row',
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.bodySemiBold,
-        fontSize: ms(18),
+        fontSize: s(18),
     },
 
     // ─── Current Badge ───────────────────────────────
@@ -229,16 +229,16 @@ const styles = StyleSheet.create({
         padding: Spacing.md,
     },
     currentIcon: {
-        fontSize: ms(32),
+        fontSize: s(32),
     },
     currentTitle: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
     },
     currentSub: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
         marginTop: 1,
     },
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     // ─── Path ────────────────────────────────────────
     scrollContent: {
         paddingTop: Spacing.md,
-        paddingBottom: vs(80),
+        paddingBottom: s(80),
     },
     horizontalScrollContent: {
         paddingHorizontal: Spacing.lg,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     },
     progressText: {
         ...Typography.caption,
-        fontSize: ms(10),
+        fontSize: s(10),
         color: Colors.textSecondary,
     },
 
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
         borderStyle: 'dashed',
     },
     nodeIcon: {
-        fontSize: ms(24),
+        fontSize: s(24),
     },
     pulse: {
         position: 'absolute',
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     },
     nodeName: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textPrimary,
     },
     nodeNameLocked: {
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     },
     nodeStreak: {
         ...Typography.caption,
-        fontSize: ms(11),
+        fontSize: s(11),
         color: Colors.textMuted,
     },
 });

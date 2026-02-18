@@ -7,7 +7,7 @@ import StreakBadge from '@/components/StreakBadge';
 import { getLevelForStreak } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
-import { ms } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white08,
     },
     menuButtonText: {
-        fontSize: ms(22),
+        fontSize: s(22),
         color: Colors.textPrimary,
     },
 
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     horizontalMenuIcon: {
-        fontSize: ms(20), // Slightly larger
+        fontSize: s(20), // Slightly larger
         marginBottom: 2,
     },
     horizontalMenuLabel: {

@@ -1,7 +1,7 @@
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { supabase } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -209,7 +209,7 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: vs(56),
+        paddingTop: s(56),
     },
     header: {
         flexDirection: 'row',
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.bodySemiBold,
-        fontSize: ms(18),
+        fontSize: s(18),
     },
     loadingContainer: {
         flex: 1,
@@ -234,26 +234,26 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         paddingHorizontal: Spacing.lg,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
     },
     emptyContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingTop: vs(80),
+        paddingTop: s(80),
     },
     emptyIcon: {
-        fontSize: ms(48),
+        fontSize: s(48),
         marginBottom: Spacing.md,
     },
     emptyText: {
         ...Typography.bodySemiBold,
-        fontSize: ms(18),
+        fontSize: s(18),
         marginBottom: Spacing.sm,
     },
     emptySubtext: {
         ...Typography.body,
         color: Colors.textMuted,
-        fontSize: ms(14),
+        fontSize: s(14),
         textAlign: 'center',
     },
     notifCard: {
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     iconText: {
-        fontSize: ms(20),
+        fontSize: s(20),
     },
     notifContent: {
         flex: 1,
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     },
     notifTitle: {
         ...Typography.bodyMedium,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
     },
     notifTitleUnread: {
@@ -294,13 +294,13 @@ const styles = StyleSheet.create({
     },
     notifBody: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
-        lineHeight: ms(16),
+        lineHeight: s(16),
     },
     notifTime: {
         ...Typography.caption,
-        fontSize: ms(10),
+        fontSize: s(10),
         color: Colors.textMuted,
         position: 'absolute',
         top: Spacing.md,
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     },
     endText: {
         ...Typography.caption,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textMuted,
     },
 });

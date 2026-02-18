@@ -2,7 +2,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { completeOnboarding as markOnboardingComplete, updateCoupleData, updateProfile } from '@/utils/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -423,7 +423,7 @@ export default function CoupleSetupScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: vs(60),
+        paddingTop: s(60),
     },
     topBar: {
         flexDirection: 'row',
@@ -432,18 +432,18 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     backButton: {
-        width: ms(36),
-        height: ms(36),
-        borderRadius: ms(18),
+        width: s(36),
+        height: s(36),
+        borderRadius: s(18),
         backgroundColor: Colors.white08,
         alignItems: 'center',
         justifyContent: 'center',
     },
     backPlaceholder: {
-        width: ms(36),
+        width: s(36),
     },
     backArrow: {
-        fontSize: ms(24),
+        fontSize: s(24),
         color: Colors.textPrimary,
         marginTop: -2,
     },
@@ -461,38 +461,38 @@ const styles = StyleSheet.create({
     },
     stepIndicator: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
-        width: ms(36),
+        width: s(36),
         textAlign: 'right',
     },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
         paddingHorizontal: Spacing.xl,
-        paddingBottom: vs(20),
+        paddingBottom: s(20),
     },
     fieldContent: {
         alignItems: 'center',
     },
     fieldTitle: {
         ...Typography.heading,
-        fontSize: ms(28),
+        fontSize: s(28),
         textAlign: 'center',
-        lineHeight: ms(38),
+        lineHeight: s(38),
         marginBottom: Spacing.sm,
     },
     fieldSubtitle: {
         ...Typography.body,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: Spacing.xl,
-        lineHeight: ms(22),
+        lineHeight: s(22),
     },
     bottomContainer: {
         paddingHorizontal: Spacing.xl,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
         alignItems: 'center',
     },
     nextButton: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     },
     errorText: {
         ...Typography.bodyMedium,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.danger,
         textAlign: 'center',
         marginBottom: Spacing.sm,
@@ -525,12 +525,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     dateIcon: {
-        fontSize: ms(24),
+        fontSize: s(24),
         marginRight: Spacing.sm,
     },
     dateText: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
     },
 
@@ -557,12 +557,12 @@ const styles = StyleSheet.create({
         borderColor: Colors.softPink,
     },
     topicIcon: {
-        fontSize: ms(16),
+        fontSize: s(16),
         marginRight: 6,
     },
     topicLabel: {
         ...Typography.bodyMedium,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textSecondary,
     },
     topicLabelSelected: {
@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     },
     topicCount: {
         ...Typography.caption,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textMuted,
         marginTop: Spacing.md,
     },
@@ -598,12 +598,12 @@ const styles = StyleSheet.create({
         borderColor: Colors.softPink,
     },
     chipIcon: {
-        fontSize: ms(18),
+        fontSize: s(18),
         marginRight: 8,
     },
     chipLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
     },
     chipLabelSelected: {
@@ -631,12 +631,12 @@ const styles = StyleSheet.create({
         borderColor: Colors.softPink,
     },
     reminderIcon: {
-        fontSize: ms(28),
+        fontSize: s(28),
         marginBottom: Spacing.sm,
     },
     reminderTime: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textSecondary,
     },
     reminderTimeSelected: {
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
     },
     reminderLabel: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
     },
     reminderLabelSelected: {

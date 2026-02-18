@@ -2,7 +2,7 @@ import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -137,18 +137,18 @@ const styles = StyleSheet.create({
     },
     errorText: {
         ...Typography.heading,
-        fontSize: ms(20),
+        fontSize: s(20),
         marginBottom: Spacing.md,
     },
     backLink: {
         ...Typography.bodyMedium,
         color: Colors.softPink,
-        fontSize: ms(16),
+        fontSize: s(16),
     },
 
     // Header
     header: {
-        paddingTop: vs(60),
+        paddingTop: s(60),
         paddingBottom: Spacing.md,
         flexDirection: 'row',
         alignItems: 'center',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     },
     questionLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
         marginBottom: Spacing.md,
     },
@@ -194,9 +194,9 @@ const styles = StyleSheet.create({
     },
     questionText: {
         ...Typography.heading,
-        fontSize: ms(20),
+        fontSize: s(20),
         textAlign: 'center',
-        lineHeight: ms(30),
+        lineHeight: s(30),
     },
 
     // Answers
@@ -220,13 +220,13 @@ const styles = StyleSheet.create({
     },
     answerLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textSecondary,
     },
     answerText: {
         ...Typography.body,
-        fontSize: ms(16),
-        lineHeight: ms(24),
+        fontSize: s(16),
+        lineHeight: s(24),
         color: Colors.textPrimary,
     },
 
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.white08,
     },
     vsText: {
-        fontSize: ms(20),
+        fontSize: s(20),
         marginHorizontal: Spacing.md,
     },
 });

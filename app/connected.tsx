@@ -3,7 +3,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { scale as s } from '@/utils/scale';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
@@ -30,7 +30,7 @@ export default function ConnectedScreen() {
                         <Animated.Text entering={FadeIn.delay(200).duration(600)} style={styles.emoji}>
                             💫
                         </Animated.Text>
-                        <AvatarMerge size={ms(80)} />
+                        <AvatarMerge size={s(80)} />
                         <Animated.Text
                             entering={FadeInUp.delay(400).duration(500)}
                             style={styles.title}
@@ -69,7 +69,7 @@ export default function ConnectedScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: vs(60),
+        paddingTop: s(60),
     },
     contentArea: {
         flex: 1,
@@ -80,23 +80,23 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emoji: {
-        fontSize: ms(48),
+        fontSize: s(48),
         marginBottom: Spacing.lg,
     },
     title: {
         ...Typography.heading,
-        fontSize: ms(34),
+        fontSize: s(34),
         textAlign: 'center',
-        lineHeight: ms(44),
+        lineHeight: s(44),
         marginTop: Spacing.lg,
         marginBottom: Spacing.lg,
     },
     subtitle: {
         ...Typography.body,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textSecondary,
         textAlign: 'center',
-        lineHeight: ms(24),
+        lineHeight: s(24),
     },
     badge: {
         backgroundColor: 'rgba(199, 125, 184, 0.12)',
@@ -107,12 +107,12 @@ const styles = StyleSheet.create({
     },
     badgeText: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.softPink,
     },
     bottomContainer: {
         paddingHorizontal: Spacing.xl,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
         alignItems: 'center',
     },
     button: {

@@ -2,7 +2,7 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { sendOtp, verifyOtp } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -215,29 +215,29 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         paddingHorizontal: Spacing.xl,
         justifyContent: 'center',
-        paddingBottom: vs(60),
+        paddingBottom: s(60),
     },
     header: {
         alignItems: 'center',
         marginBottom: Spacing.xxxl,
     },
     logoIcon: {
-        fontSize: ms(48),
+        fontSize: s(48),
         marginBottom: Spacing.lg,
     },
     title: {
         ...Typography.heading,
-        fontSize: ms(38),
+        fontSize: s(38),
         textAlign: 'center',
-        lineHeight: ms(46),
+        lineHeight: s(46),
     },
     subtitle: {
         ...Typography.body,
-        fontSize: ms(15),
+        fontSize: s(15),
         color: Colors.textSecondary,
         textAlign: 'center',
         marginTop: Spacing.md,
-        lineHeight: ms(22),
+        lineHeight: s(22),
     },
     formSection: {
         gap: Spacing.lg,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     },
     emailInput: {
         ...Typography.body,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
         paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.md + 2,
@@ -263,14 +263,14 @@ const styles = StyleSheet.create({
         gap: Spacing.sm + 2,
     },
     otpInput: {
-        width: ms(48),
-        height: ms(56),
+        width: s(48),
+        height: s(56),
         borderRadius: Radius.md,
         borderWidth: 1.5,
         borderColor: Colors.inputBorder,
         backgroundColor: Colors.inputBg,
         ...Typography.bodySemiBold,
-        fontSize: ms(22),
+        fontSize: s(22),
         color: Colors.textPrimary,
         textAlign: 'center',
     },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
         ...Typography.caption,
         color: Colors.danger,
         textAlign: 'center',
-        fontSize: ms(13),
+        fontSize: s(13),
     },
     loadingRow: {
         flexDirection: 'row',
@@ -295,12 +295,12 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         ...Typography.body,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
     },
     resendLink: {
         ...Typography.bodyMedium,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.lavender,
         textAlign: 'center',
         marginTop: Spacing.sm,

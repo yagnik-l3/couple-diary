@@ -1,7 +1,7 @@
 import FloatingCard from '@/components/FloatingCard';
 import GlowButton from '@/components/GlowButton';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
-import { ms } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import React from 'react';
 import {
     Alert,
@@ -110,12 +110,12 @@ const styles = StyleSheet.create({
     },
     title: {
         ...Typography.heading,
-        fontSize: ms(24),
+        fontSize: s(24),
         marginBottom: Spacing.xs,
     },
     subtitle: {
         ...Typography.body,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
         marginBottom: Spacing.lg,
         textAlign: 'center',
@@ -146,24 +146,24 @@ const styles = StyleSheet.create({
     },
     popularText: {
         ...Typography.bodySemiBold,
-        fontSize: ms(9),
+        fontSize: s(9),
         color: '#FFF',
     },
     packEmoji: {
-        fontSize: ms(32),
+        fontSize: s(32),
     },
     packLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
     },
     packPrice: {
         ...Typography.body,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.goldSparkle,
     },
     note: {
         ...Typography.caption,
-        fontSize: ms(12),
+        fontSize: s(12),
         textAlign: 'center',
         marginBottom: Spacing.md,
     },

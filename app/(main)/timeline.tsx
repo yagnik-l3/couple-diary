@@ -1,14 +1,14 @@
 import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import WeekCalendar from '@/components/WeekCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
     ScrollView,
     StyleSheet,
     Text,
@@ -123,9 +123,11 @@ export default function TimelineScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     {loading ? (
-                        <View style={styles.emptyState}>
-                            <ActivityIndicator size="large" color={Colors.softPink} />
-                            <Text style={styles.emptyTitle}>Loading memories...</Text>
+                        <View style={{ gap: Spacing.md }}>
+                            <SkeletonLoader.Line width={150} height={18} style={{ marginBottom: Spacing.md }} />
+                            <SkeletonLoader.Card height={80} style={{ marginBottom: Spacing.md }} />
+                            <SkeletonLoader.Card height={120} style={{ marginBottom: Spacing.md }} />
+                            <SkeletonLoader.Card height={120} />
                         </View>
                     ) : selectedMemory ? (
                         <Animated.View entering={FadeInUp.duration(500)} key={selectedMemory.id}>
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: vs(56),
+        paddingTop: s(56),
     },
     header: {
         flexDirection: 'row',
@@ -198,11 +200,11 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.bodySemiBold,
-        fontSize: ms(18),
+        fontSize: s(18),
     },
     scrollContent: {
         paddingHorizontal: Spacing.lg,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
     },
 
     // ─── Day Info ────────────────────────────────────
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     },
     dayBadge: {
         ...Typography.bodySemiBold,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.goldSparkle,
         backgroundColor: 'rgba(245, 208, 138, 0.12)',
         paddingVertical: 4,
@@ -224,15 +226,15 @@ const styles = StyleSheet.create({
     },
     dateLabel: {
         ...Typography.caption,
-        fontSize: ms(13),
+        fontSize: s(13),
         color: Colors.textMuted,
     },
 
     // ─── Question ────────────────────────────────────
     question: {
         ...Typography.headingItalic,
-        fontSize: ms(18),
-        lineHeight: ms(26),
+        fontSize: s(18),
+        lineHeight: s(26),
         color: Colors.textPrimary,
         marginBottom: Spacing.lg,
     },
@@ -254,38 +256,38 @@ const styles = StyleSheet.create({
     },
     answerLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     answerText: {
         ...Typography.body,
-        fontSize: ms(15),
+        fontSize: s(15),
         color: Colors.textPrimary,
-        lineHeight: ms(22),
+        lineHeight: s(22),
     },
 
     // ─── Empty State ─────────────────────────────────
     emptyState: {
         alignItems: 'center',
-        marginTop: vs(60),
+        marginTop: s(60),
     },
     emptyIcon: {
-        fontSize: ms(48),
+        fontSize: s(48),
         marginBottom: Spacing.md,
     },
     emptyTitle: {
         ...Typography.bodySemiBold,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
         marginBottom: Spacing.xs,
     },
     emptyText: {
         ...Typography.body,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textMuted,
         textAlign: 'center',
-        lineHeight: ms(20),
+        lineHeight: s(20),
     },
 });

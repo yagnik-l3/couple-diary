@@ -1,4 +1,5 @@
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import WeekCalendar from '@/components/WeekCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
@@ -8,7 +9,7 @@ import {
     getWeekEntries,
     saveEntry
 } from '@/utils/journalStore';
-import { ms, vs } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -49,6 +50,7 @@ export default function JournalScreen() {
     const today = getTodayDate();
     const [selectedDate, setSelectedDate] = useState(today);
     const [content, setContent] = useState('');
+    const [loading, setLoading] = useState(true);
     const [allDates, setAllDates] = useState<Set<string>>(new Set());
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
     const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +77,7 @@ export default function JournalScreen() {
 
     // Fetch week data and populate cache
     const fetchWeekData = useCallback(async (weekStart: string, weekEnd: string) => {
+        setLoading(true);
         try {
             const entries = await getWeekEntries(weekStart, weekEnd);
             const newCache = new Map<string, string>();
@@ -89,6 +92,8 @@ export default function JournalScreen() {
             }
         } catch (err) {
             console.error('Failed to fetch week entries:', err);
+        } finally {
+            setLoading(false);
         }
     }, [selectedDate]);
 
@@ -183,21 +188,31 @@ export default function JournalScreen() {
 
                     {/* Direct text input — fills remaining space */}
                     <View style={styles.inputContainer}>
-                        <TextInput
-                            style={styles.textInput}
-                            value={content}
-                            onChangeText={handleChange}
-                            onBlur={handleBlur}
-                            multiline
-                            scrollEnabled
-                            placeholder={
-                                isToday
-                                    ? 'How are you feeling today?\nWrite your thoughts...'
-                                    : 'Write your thoughts for this day...'
-                            }
-                            placeholderTextColor={Colors.textMuted}
-                            textAlignVertical="top"
-                        />
+                        {loading ? (
+                            <View style={{ gap: 12, marginTop: 10 }}>
+                                <SkeletonLoader.Line width="90%" height={20} />
+                                <SkeletonLoader.Line width="80%" height={20} />
+                                <SkeletonLoader.Line width="95%" height={20} />
+                                <SkeletonLoader.Line width="60%" height={20} />
+                                <SkeletonLoader.Line width="85%" height={20} />
+                            </View>
+                        ) : (
+                            <TextInput
+                                style={styles.textInput}
+                                value={content}
+                                onChangeText={handleChange}
+                                onBlur={handleBlur}
+                                multiline
+                                scrollEnabled
+                                placeholder={
+                                    isToday
+                                        ? 'How are you feeling today?\nWrite your thoughts...'
+                                        : 'Write your thoughts for this day...'
+                                }
+                                placeholderTextColor={Colors.textMuted}
+                                textAlignVertical="top"
+                            />
+                        )}
                     </View>
                 </View>
             </KeyboardAvoidingView>
@@ -209,7 +224,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: vs(56),
+        paddingTop: s(56),
     },
     header: {
         flexDirection: 'row',
@@ -225,7 +240,7 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.heading,
-        fontSize: ms(20),
+        fontSize: s(20),
     },
     placeholder: { width: 50 },
     dateRow: {
@@ -237,31 +252,31 @@ const styles = StyleSheet.create({
     },
     dateLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.goldSparkle,
     },
     savingText: {
         ...Typography.body,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: Colors.textMuted,
         fontStyle: 'italic',
     },
     savedText: {
         ...Typography.bodySemiBold,
-        fontSize: ms(12),
+        fontSize: s(12),
         color: '#5CE05C',
     },
     inputContainer: {
         flexGrow: 1,
         paddingHorizontal: Spacing.lg,
-        paddingBottom: vs(40),
+        paddingBottom: s(40),
     },
     textInput: {
         ...Typography.body,
-        fontSize: ms(16),
+        fontSize: s(16),
         color: Colors.textPrimary,
-        lineHeight: ms(26),
+        lineHeight: s(26),
         flex: 1,
-        minHeight: vs(200),
+        minHeight: s(200),
     },
 });

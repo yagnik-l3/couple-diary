@@ -1,4 +1,4 @@
-import { moderateScale as ms, scale as s } from '@/utils/scale';
+import { s } from '@/utils/scale';
 
 // ─── Color Palette ────────────────────────────────────
 export const Colors = {
@@ -62,7 +62,7 @@ export const Typography = {
   },
   h3: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: ms(20),
+    fontSize: s(20),
     color: Colors.textPrimary,
   },
   body: {
@@ -80,7 +80,7 @@ export const Typography = {
   caption: {
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
-    fontSize: ms(13),
+    fontSize: s(13),
   },
 };
 
@@ -96,11 +96,11 @@ export const Spacing = {
 };
 
 export const Radius = {
-  sm: ms(8),
-  md: ms(16),
-  lg: ms(20),
-  xl: ms(24),
-  xxl: ms(32),
+  sm: s(8),
+  md: s(16),
+  lg: s(20),
+  xl: s(24),
+  xxl: s(32),
   full: 999,
 };
 

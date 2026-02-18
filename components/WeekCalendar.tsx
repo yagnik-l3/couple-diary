@@ -1,5 +1,5 @@
 import { Colors, Spacing, Typography } from '@/constants/theme';
-import { ms } from '@/utils/scale';
+import { s } from '@/utils/scale';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -190,7 +190,7 @@ export default function WeekCalendar({
 // We use screen width via Dimensions as the week width for paging
 import { Dimensions } from 'react-native';
 const WEEK_WIDTH = Dimensions.get('window').width;
-const DAY_SIZE = ms(36);
+const DAY_SIZE = s(36);
 
 const styles = StyleSheet.create({
     container: {
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     },
     monthLabel: {
         ...Typography.bodySemiBold,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
     },
     weekRow: {
@@ -220,16 +220,17 @@ const styles = StyleSheet.create({
     },
     dayName: {
         ...Typography.caption,
-        fontSize: ms(11),
+        fontSize: s(11),
         color: Colors.textMuted,
         marginBottom: 2,
     },
     dayCircle: {
         width: DAY_SIZE,
         height: DAY_SIZE,
-        borderRadius: DAY_SIZE / 2,
+        borderRadius: 999, // Use 999 for perfect circle on Android
         alignItems: 'center',
         justifyContent: 'center',
+        overflow: 'hidden', // Ensure background doesn't bleed if any
     },
     dayCircleSelected: {
         backgroundColor: Colors.softPink,
@@ -240,7 +241,7 @@ const styles = StyleSheet.create({
     },
     dayNumber: {
         ...Typography.bodyMedium,
-        fontSize: ms(14),
+        fontSize: s(14),
         color: Colors.textSecondary,
     },
     dayNumberSelected: {
