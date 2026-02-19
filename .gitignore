@@ -41,3 +41,6 @@ app-example
 # generated native folders
 /ios
 /android
+
+.env
+couple-diary-62199-firebase-adminsdk-fbsvc-23ecdd5d99.json

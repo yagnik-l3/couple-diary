@@ -5,7 +5,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { completeOnboarding as markOnboardingComplete, updateCoupleData, updateProfile } from '@/utils/supabase';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -263,12 +263,15 @@ export default function CoupleSetupScreen() {
                                         <DateTimePicker
                                             value={relationshipDate || new Date()}
                                             mode="date"
-                                            display="spinner"
-                                            maximumDate={new Date()}
-                                            minimumDate={new Date(1970, 0, 1)}
-                                            onChange={(event: any, selectedDate?: Date) => {
-                                                setShowDatePicker(false);
-                                                if (selectedDate) setRelationshipDate(selectedDate);
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            accentColor={Colors.softPink}
+                                            onChange={(event: DateTimePickerEvent, date?: Date) => {
+                                                if (Platform.OS === 'android') {
+                                                    setShowDatePicker(false);
+                                                }
+                                                if (date) {
+                                                    setRelationshipDate(date);
+                                                }
                                             }}
                                         />
                                     )}
@@ -277,14 +280,11 @@ export default function CoupleSetupScreen() {
                                 <DateTimePicker
                                     value={relationshipDate || new Date()}
                                     mode="date"
-                                    display="spinner"
-                                    maximumDate={new Date()}
-                                    minimumDate={new Date(1970, 0, 1)}
-                                    onChange={(event: any, selectedDate?: Date) => {
-                                        if (selectedDate) setRelationshipDate(selectedDate);
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    accentColor={Colors.softPink}
+                                    onChange={(event: DateTimePickerEvent, date?: Date) => {
+                                        if (date) setRelationshipDate(date);
                                     }}
-                                    themeVariant="dark"
-                                    style={{ alignSelf: 'center' }}
                                 />
                             )}
                         </Animated.View>
@@ -511,6 +511,7 @@ const styles = StyleSheet.create({
     dateContainer: {
         alignItems: 'center',
         marginTop: Spacing.lg,
+        width: '100%',
     },
     dateButton: {
         flexDirection: 'row',
@@ -521,7 +522,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         borderWidth: 1,
         borderColor: Colors.glassBorder,
-        minWidth: '80%',
+        width: '100%',
         justifyContent: 'center',
     },
     dateIcon: {
@@ -532,6 +533,25 @@ const styles = StyleSheet.create({
         ...Typography.bodySemiBold,
         fontSize: s(16),
         color: Colors.textPrimary,
+    },
+    // New styles for @react-native-community/datetimepicker
+    // The picker itself is typically rendered natively, so these styles might be for a wrapper or custom display
+    datePickerDisplay: {
+        width: '100%', // This might be for a custom display component that shows the selected date
+        // Add other styles as needed for the display component
+    },
+    pickerWrapper: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: Radius.lg,
+        marginTop: Spacing.md,
+        padding: Spacing.xs,
+        width: '100%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+        overflow: 'hidden',
     },
 
     // ─── Topic Grid ───────────────────────────────────

@@ -35,17 +35,17 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.sm,
     },
     heart: {
-        fontSize: s(16),
+        fontSize: Typography.lg.fontSize,
     },
     heartSm: {
-        fontSize: s(12),
+        fontSize: Typography.sm.fontSize,
     },
     count: {
         ...Typography.bodySemiBold,
-        fontSize: s(15),
+        fontSize: Typography.md.fontSize,
         color: Colors.rosePink,
     },
     countSm: {
-        fontSize: s(12),
+        fontSize: Typography.sm.fontSize,
     },
 });

@@ -15,6 +15,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,24 +43,26 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <AppStateProvider>
-      <NotificationProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#0B0D2E' },
-            animation: 'fade',
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="connected" />
-          <Stack.Screen name="couple-setup" />
-          <Stack.Screen name="(main)" />
-        </Stack>
-      </NotificationProvider>
-    </AppStateProvider>
+    <SafeAreaProvider>
+      <AppStateProvider>
+        <NotificationProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: '#0B0D2E' },
+              animation: 'fade',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="connected" />
+            <Stack.Screen name="couple-setup" />
+            <Stack.Screen name="(main)" />
+          </Stack>
+        </NotificationProvider>
+      </AppStateProvider>
+    </SafeAreaProvider>
   );
 }

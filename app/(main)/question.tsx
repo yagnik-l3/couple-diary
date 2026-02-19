@@ -1,6 +1,7 @@
 import FloatingCard from '@/components/FloatingCard';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
@@ -8,7 +9,6 @@ import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
@@ -64,9 +64,34 @@ export default function QuestionScreen() {
         return (
             <GradientBackground variant="full">
                 <StarBackground />
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color={Colors.softPink} />
-                    <Text style={styles.loadingText}>Loading today's question...</Text>
+                <View style={styles.container}>
+                    {/* Back Button Skeleton */}
+                    <SkeletonLoader.Line width={60} height={20} style={{ marginBottom: Spacing.lg }} />
+
+                    {/* Tag Row Skeleton */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
+                        <SkeletonLoader.Base width={120} height={34} borderRadius={Radius.full} />
+                        <SkeletonLoader.Line width={60} height={14} style={{ marginBottom: 0 }} />
+                    </View>
+
+                    {/* Question Card Skeleton */}
+                    <View style={{ marginBottom: Spacing.xl }}>
+                        <FloatingCard style={[styles.questionCard, { paddingVertical: Spacing.xl }]}>
+                            <SkeletonLoader.Base width={40} height={40} borderRadius={20} style={{ marginBottom: Spacing.md, opacity: 0.5 }} />
+                            <SkeletonLoader.Line width="90%" height={24} />
+                            <SkeletonLoader.Line width="70%" height={24} />
+                            <SkeletonLoader.Base width={40} height={40} borderRadius={20} style={{ marginTop: Spacing.md, opacity: 0.5 }} />
+                        </FloatingCard>
+                    </View>
+
+                    {/* Answer Input Skeleton */}
+                    <View style={{ marginBottom: Spacing.xl }}>
+                        <SkeletonLoader.Line width={100} height={16} style={{ marginBottom: Spacing.sm }} />
+                        <SkeletonLoader.Base width="100%" height={160} borderRadius={Radius.lg} />
+                    </View>
+
+                    {/* Button Skeleton */}
+                    <SkeletonLoader.Base width="100%" height={56} borderRadius={Radius.full} />
                 </View>
             </GradientBackground>
         );
@@ -88,6 +113,16 @@ export default function QuestionScreen() {
     return (
         <GradientBackground variant="full">
             <StarBackground />
+            {/* Back */}
+            <View style={styles.header}>
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <Text style={styles.backText}>← Back</Text>
+                </TouchableOpacity>
+                <View style={styles.tag}>
+                    <Text style={styles.tagText}>💭 {question?.category || 'Daily Question'}</Text>
+                </View>
+                <Text style={styles.dayText}>Day {state.streakCount}</Text>
+            </View>
             <KeyboardAvoidingView
                 style={styles.flex}
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -96,17 +131,9 @@ export default function QuestionScreen() {
                     contentContainerStyle={styles.container}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back */}
-                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                        <Text style={styles.backText}>← Back</Text>
-                    </TouchableOpacity>
 
                     {/* Category Tag */}
                     <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.tagRow}>
-                        <View style={styles.tag}>
-                            <Text style={styles.tagText}>💭 {question?.category || 'Daily Question'}</Text>
-                        </View>
-                        <Text style={styles.dayText}>Day {state.streakCount}</Text>
                     </Animated.View>
 
                     {/* Question Card */}
@@ -156,11 +183,17 @@ export default function QuestionScreen() {
 
 const styles = StyleSheet.create({
     flex: { flex: 1 },
+    header: {
+        borderWidth: 1,
+        borderColor: Colors.glassBorder,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.lg,
+    },
     container: {
         flexGrow: 1,
         paddingHorizontal: Spacing.lg,
-        paddingTop: 60,
-        paddingBottom: Spacing.xxl,
     },
     centered: {
         flex: 1,
@@ -189,7 +222,6 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
     },
     tagRow: {
         flexDirection: 'row',

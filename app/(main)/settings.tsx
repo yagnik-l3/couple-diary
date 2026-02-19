@@ -1,3 +1,4 @@
+import ActionSheet from '@/components/ActionSheet';
 import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
@@ -10,7 +11,6 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Modal,
     Pressable,
     ScrollView,
@@ -18,7 +18,7 @@ import {
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
@@ -69,7 +69,24 @@ export default function SettingsScreen() {
     const [loadingCode, setLoadingCode] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Action Sheet state
+    const [actionSheet, setActionSheet] = useState<{
+        visible: boolean;
+        type: 'logout' | 'delete' | null;
+    }>({ visible: false, type: null });
+
     const isPaired = state.hasPartner;
+
+    const handleConfirmAction = useCallback(() => {
+        if (actionSheet.type === 'logout') {
+            reset();
+            router.replace('/onboarding');
+        } else if (actionSheet.type === 'delete') {
+            // TODO: Call API to delete account
+            reset();
+            router.replace('/onboarding');
+        }
+    }, [actionSheet.type, reset, router]);
 
     const openInviteModal = useCallback(async () => {
         setInviteModalVisible(true);
@@ -189,38 +206,14 @@ export default function SettingsScreen() {
                         <SettingRow
                             icon="🚪"
                             label="Log Out"
-                            onPress={() => {
-                                Alert.alert('Log Out', 'Are you sure you want to log out?', [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                        text: 'Log Out',
-                                        style: 'destructive',
-                                        onPress: () => {
-                                            reset();
-                                            router.replace('/onboarding');
-                                        },
-                                    },
-                                ]);
-                            }}
+                            onPress={() => setActionSheet({ visible: true, type: 'logout' })}
                             danger
                             showArrow
                         />
                         <SettingRow
                             icon="🗑️"
                             label="Delete Account"
-                            onPress={() => {
-                                Alert.alert('Delete Account', 'Are you sure you want to delete your account?', [
-                                    { text: 'Cancel', style: 'cancel' },
-                                    {
-                                        text: 'Delete Account',
-                                        style: 'destructive',
-                                        onPress: () => {
-                                            reset();
-                                            router.replace('/onboarding');
-                                        },
-                                    },
-                                ]);
-                            }}
+                            onPress={() => setActionSheet({ visible: true, type: 'delete' })}
                             danger
                             showArrow
                         />
@@ -306,6 +299,22 @@ export default function SettingsScreen() {
                     </Pressable>
                 </Pressable>
             </Modal>
+
+            {/* ─── Action Sheet ───────────────────────────────── */}
+            <ActionSheet
+                visible={actionSheet.visible}
+                onClose={() => setActionSheet(prev => ({ ...prev, visible: false }))}
+                title={actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account'}
+                message={
+                    actionSheet.type === 'logout'
+                        ? 'Are you sure you want to log out?'
+                        : 'Are you sure you want to delete your account? This action cannot be undone.'
+                }
+                icon={actionSheet.type === 'logout' ? '🚪' : '🗑️'}
+                confirmLabel={actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account'}
+                onConfirm={handleConfirmAction}
+                isDestructive
+            />
         </GradientBackground>
     );
 }
@@ -322,11 +331,11 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
+        fontSize: Typography.md.fontSize,
     },
     headerTitle: {
         ...Typography.bodySemiBold,
-        fontSize: 18,
+        fontSize: Typography.h3.fontSize,
     },
     scrollContent: {
         paddingHorizontal: Spacing.lg,
@@ -334,7 +343,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         ...Typography.bodySemiBold,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
         color: Colors.textSecondary,
         marginBottom: Spacing.sm,
         marginTop: Spacing.md,
@@ -354,18 +363,18 @@ const styles = StyleSheet.create({
         gap: Spacing.md,
     },
     settingIcon: {
-        fontSize: 20,
+        fontSize: Typography.xl.fontSize,
         width: 28,
         textAlign: 'center',
     },
     settingLabel: {
         ...Typography.bodyMedium,
-        fontSize: 15,
+        fontSize: Typography.md.fontSize,
         flex: 1,
     },
     arrow: {
         ...Typography.body,
-        fontSize: 22,
+        fontSize: Typography.xl.fontSize,
         color: Colors.textMuted,
     },
     rowDivider: {
@@ -382,7 +391,7 @@ const styles = StyleSheet.create({
     },
     versionText: {
         ...Typography.caption,
-        fontSize: 12,
+        fontSize: Typography.sm.fontSize,
         textAlign: 'center',
         marginTop: Spacing.xl,
         color: Colors.textMuted,
@@ -413,24 +422,24 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.lg,
     },
     modalEmoji: {
-        fontSize: 28,
+        fontSize: Typography.xxl.fontSize,
         marginRight: Spacing.sm,
     },
     modalTitle: {
         ...Typography.heading,
-        fontSize: 22,
+        fontSize: Typography.xl.fontSize,
         flex: 1,
     },
     modalClose: {
         padding: 4,
     },
     modalCloseText: {
-        fontSize: 20,
+        fontSize: Typography.xl.fontSize,
         color: Colors.textMuted,
     },
     modalSubtitle: {
         ...Typography.body,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
         color: Colors.textSecondary,
         marginBottom: Spacing.lg,
         lineHeight: 20,
@@ -445,11 +454,11 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     pairedIcon: {
-        fontSize: 18,
+        fontSize: Typography.lg.fontSize,
     },
     pairedText: {
         ...Typography.bodySemiBold,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
         color: Colors.success,
     },
     codeLoading: {
@@ -468,7 +477,7 @@ const styles = StyleSheet.create({
     },
     codeLabel: {
         ...Typography.caption,
-        fontSize: 11,
+        fontSize: Typography.xs.fontSize,
         color: Colors.textMuted,
         textTransform: 'uppercase',
         letterSpacing: 1.5,
@@ -476,7 +485,7 @@ const styles = StyleSheet.create({
     },
     codeText: {
         ...Typography.heading,
-        fontSize: 26,
+        fontSize: Typography.xxl.fontSize,
         color: Colors.lavender,
         letterSpacing: 3,
     },
@@ -504,11 +513,11 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(199, 125, 184, 0.3)',
     },
     actionIcon: {
-        fontSize: 18,
+        fontSize: Typography.lg.fontSize,
     },
     actionText: {
         ...Typography.bodySemiBold,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
         color: Colors.textPrimary,
     },
     copiedText: {

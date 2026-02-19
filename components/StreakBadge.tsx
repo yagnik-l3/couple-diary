@@ -9,9 +9,9 @@ interface Props {
 }
 
 const sizes = {
-    sm: { badge: 28, icon: 14, text: 12 },
-    md: { badge: 36, icon: 18, text: 14 },
-    lg: { badge: 48, icon: 24, text: 18 },
+    sm: { badge: 28, icon: Typography.md.fontSize, text: Typography.sm.fontSize },
+    md: { badge: 36, icon: Typography.xl.fontSize, text: Typography.md.fontSize },
+    lg: { badge: 48, icon: Typography.xxl.fontSize, text: Typography.xl.fontSize },
 };
 
 export default function StreakBadge({ count, size = 'md' }: Props) {

@@ -7,6 +7,7 @@ import {
     Text,
     TextStyle,
     TouchableOpacity,
+    View,
     ViewStyle,
 } from 'react-native';
 
@@ -45,10 +46,12 @@ export default function GlowButton({
                 {loading ? (
                     <ActivityIndicator color={Colors.textPrimary} />
                 ) : (
-                    <>
-                        {icon}
-                        <Text style={[styles.text, textStyle]}>{title}</Text>
-                    </>
+                    <View style={styles.content}>
+                        <View style={styles.titleRow}>
+                            {icon}
+                            <Text style={[styles.text, textStyle]}>{title}</Text>
+                        </View>
+                    </View>
                 )}
             </LinearGradient>
         </TouchableOpacity>
@@ -57,21 +60,32 @@ export default function GlowButton({
 
 const styles = StyleSheet.create({
     wrapper: {
-        borderRadius: Radius.xl,
+        borderRadius: Radius.full,
         ...Shadows.glow,
     },
     gradient: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: Spacing.md,
-        paddingHorizontal: Spacing.xl,
-        borderRadius: Radius.xl,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+        borderRadius: Radius.full,
         gap: Spacing.sm,
+        minHeight: 44,
+    },
+    content: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: Spacing.xs,
     },
     text: {
         ...Typography.bodySemiBold,
-        fontSize: 16,
+        fontSize: Typography.md.fontSize,
         color: Colors.textPrimary,
     },
     disabled: {

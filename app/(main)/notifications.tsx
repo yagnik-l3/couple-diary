@@ -1,4 +1,5 @@
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
@@ -6,13 +7,12 @@ import { supabase } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
     RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
@@ -131,8 +131,28 @@ export default function NotificationScreen() {
                 </View>
 
                 {loading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator color={Colors.softPink} size="large" />
+                    <View style={styles.scrollContent}>
+                        {/* Header Skeleton */}
+                        <View style={{ marginBottom: Spacing.lg }}>
+                            <SkeletonLoader.Line width={120} height={24} />
+                            <SkeletonLoader.Line width={200} height={14} />
+                        </View>
+
+                        {/* List Skeleton */}
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <View key={i} style={{
+                                flexDirection: 'row',
+                                padding: Spacing.md,
+                                gap: Spacing.md,
+                                marginBottom: 2
+                            }}>
+                                <SkeletonLoader.Base width={42} height={42} borderRadius={21} />
+                                <View style={{ flex: 1, justifyContent: 'center', gap: 6 }}>
+                                    <SkeletonLoader.Line width="60%" height={14} style={{ marginBottom: 0 }} />
+                                    <SkeletonLoader.Line width="90%" height={12} style={{ marginBottom: 0 }} />
+                                </View>
+                            </View>
+                        ))}
                     </View>
                 ) : (
                     <ScrollView
@@ -221,7 +241,6 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
     },
     headerTitle: {
         ...Typography.bodySemiBold,

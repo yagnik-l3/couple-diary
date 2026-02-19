@@ -4,8 +4,8 @@ import { supabase } from './supabase';
 
 export const QuestionService = {
     /**
-     * Get today's question for the couple.
-     * If one doesn't exist, it assigns a new one from the pool.
+     * Get today's question for the couple (UTC).
+     * Uses a Postgres RPC to handle random assignment, non-repetition, and race conditions.
      */
     getTodayQuestion: async (): Promise<(Question & { daily_id: string }) | null> => {
         const today = getTodayDate();
@@ -21,74 +21,28 @@ export const QuestionService = {
 
         if (!profile?.couple_id) return null;
 
-        // 2. Check if a daily question already exists for today
-        let { data: dailyQ } = await supabase
-            .from('daily_questions')
-            .select('id, question:questions(*)')
-            .eq('couple_id', profile.couple_id)
-            .eq('date', today)
-            .maybeSingle();
+        // 2. Call the RPC to get or assign today's question
+        const { data, error } = await supabase.rpc('get_or_assign_daily_question', {
+            p_couple_id: profile.couple_id,
+            p_date: today
+        });
 
-        // 3. If exists, return it
-        if (dailyQ && dailyQ.question) {
-            const q = dailyQ.question as unknown as Question;
-            return { ...q, daily_id: dailyQ.id };
+        if (error) {
+            console.error('Error fetching/assigning daily question:', error);
+            throw error;
         }
 
-        // 4. If not, pick a random question from the pool
-        // (In a real app, we'd filter out used questions, but for now random is fine)
-        const { data: randomQ } = await supabase
-            .from('questions')
-            .select('*')
-            .limit(1)
-            .maybeSingle();
-        // Note: In production you'd use a postgres function or a more complex query to get a random unused one
+        if (!data || data.length === 0) return null;
 
-        // If no questions in pool, return a fallback (or seed one)
-        let questionToUse = randomQ;
-        if (!questionToUse) {
-            // Fallback seed if pool is empty
-            const { data: seeded } = await supabase
-                .from('questions')
-                .insert({
-                    text: "What's one small thing your partner does that always makes you smile?",
-                    category: 'gratitude'
-                })
-                .select()
-                .single();
-            questionToUse = seeded;
-        }
-
-        // 5. Insert into daily_questions
-        // Handle race condition: if partner just inserted it, this insert will fail (unique constraint),
-        // so we catch error and fetch again.
-        const { data: newDaily, error: insertError } = await supabase
-            .from('daily_questions')
-            .insert({
-                couple_id: profile.couple_id,
-                question_id: questionToUse!.id,
-                date: today
-            })
-            .select('id')
-            .single();
-
-        if (insertError) {
-            // Likely race condition — fetch the one that was just created
-            const { data: existing } = await supabase
-                .from('daily_questions')
-                .select('id, question:questions(*)')
-                .eq('couple_id', profile.couple_id)
-                .eq('date', today)
-                .single();
-
-            if (existing && existing.question) {
-                const q = existing.question as unknown as Question;
-                return { ...q, daily_id: existing.id };
-            }
-            throw insertError;
-        }
-
-        return { ...questionToUse!, daily_id: newDaily.id };
+        // The RPC returns { id, text, category, daily_id }
+        const result = data[0];
+        return {
+            id: result.id,
+            text: result.text,
+            category: result.category,
+            daily_id: result.daily_id,
+            created_at: result.created_at || new Date().toISOString()
+        };
     },
 
     /**

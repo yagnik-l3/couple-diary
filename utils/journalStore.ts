@@ -9,10 +9,9 @@ export interface JournalEntry {
 
 // ─── Public API ───────────────────────────────────────
 
-/** Get today's date as YYYY-MM-DD string. */
+/** Get today's date as YYYY-MM-DD string (UTC). */
 export function getTodayDate(): string {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return new Date().toISOString().split('T')[0];
 }
 
 /** Get a single entry by date (YYYY-MM-DD). Returns null if not found. */

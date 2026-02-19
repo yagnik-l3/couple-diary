@@ -7,7 +7,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboardingComplete, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +16,6 @@ import {
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     TextInput,
@@ -62,19 +61,6 @@ const STEPS: Step[] = [
     { id: 'invite', type: 'invite', title: 'Invite Your\nOther Half', subtitle: 'Share your code or join theirs' },
 ];
 
-const TOPIC_OPTIONS = [
-    { id: 'love', label: 'Love Languages', icon: '💕' },
-    { id: 'dreams', label: 'Dreams & Goals', icon: '🌠' },
-    { id: 'intimacy', label: 'Intimacy', icon: '🔥' },
-    { id: 'fun', label: 'Fun & Hypothetical', icon: '🎭' },
-    { id: 'deep', label: 'Deep Conversations', icon: '🌊' },
-    { id: 'memories', label: 'Past Memories', icon: '📸' },
-    { id: 'future', label: 'Future Together', icon: '🚀' },
-    { id: 'gratitude', label: 'Gratitude', icon: '🙏' },
-    { id: 'chaos', label: 'Random Chaos', icon: '🎲' },
-    { id: 'games', label: 'Couple Games', icon: '🎮' },
-];
-
 const GENDER_OPTIONS = [
     { id: 'male', label: 'Male', icon: '👨' },
     { id: 'female', label: 'Female', icon: '👩' },
@@ -82,19 +68,6 @@ const GENDER_OPTIONS = [
     { id: 'prefer-not', label: 'Prefer Not to Say', icon: '✨' },
 ];
 
-const VIBE_OPTIONS = [
-    { id: 'romantic', label: 'Cute & Romantic', icon: '💞' },
-    { id: 'funny', label: 'Funny & Meme-Lords', icon: '😂' },
-    { id: 'deep', label: 'Deep & Emotional', icon: '🌊' },
-    { id: 'chaotic', label: 'Chaotic but Loyal', icon: '🔥' },
-    { id: 'calm', label: 'Calm & Peaceful', icon: '🌿' },
-];
-
-const REMINDER_OPTIONS = [
-    { id: '09:00', label: 'Morning', time: '9 AM', icon: '☀️' },
-    { id: '18:00', label: 'Evening', time: '6 PM', icon: '🌅' },
-    { id: '22:00', label: 'Night', time: '10 PM', icon: '🌙' },
-];
 
 // ─── Animated Chip Component ──────────────────────────
 function AnimatedChip({
@@ -125,34 +98,6 @@ function AnimatedChip({
     );
 }
 
-// ─── Animated Topic Pill Component ────────────────────
-function AnimatedTopicPill({
-    label, icon, selected, onPress, index,
-}: { label: string; icon: string; selected: boolean; onPress: () => void; index: number }) {
-
-    const handlePress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-    };
-
-    return (
-        <Animated.View
-            entering={FadeInUp.delay(index * 60 + 80).duration(350).springify()}
-        >
-            <TouchableOpacity
-                style={[styles.topicPill, selected && styles.topicPillSelected]}
-                onPress={handlePress}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.topicIcon}>{icon}</Text>
-                <Text style={[styles.topicLabel, selected && styles.topicLabelSelected]}>
-                    {label}
-                </Text>
-            </TouchableOpacity>
-        </Animated.View>
-    );
-}
-
 // ─── Pulsing Icon Component ───────────────────────────
 function PulsingIcon({ icon }: { icon: string }) {
     const scale = useSharedValue(1);
@@ -177,33 +122,6 @@ function PulsingIcon({ icon }: { icon: string }) {
     );
 }
 
-// ─── Reminder Card Component ──────────────────────────
-function ReminderCard({
-    label, time, icon, selected, onPress, index,
-}: { label: string; time: string; icon: string; selected: boolean; onPress: () => void; index: number }) {
-
-    const handlePress = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-    };
-
-    return (
-        <Animated.View
-            entering={FadeInUp.delay(index * 100 + 100).duration(400).springify()}
-            style={{ flex: 1 }}
-        >
-            <TouchableOpacity
-                style={[styles.reminderCard, selected && styles.reminderCardSelected]}
-                onPress={handlePress}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.reminderIcon}>{icon}</Text>
-                <Text style={[styles.reminderTime, selected && styles.reminderTimeSelected]}>{time}</Text>
-                <Text style={[styles.reminderLabel, selected && styles.reminderLabelSelected]}>{label}</Text>
-            </TouchableOpacity>
-        </Animated.View>
-    );
-}
 
 export default function OnboardingScreen() {
     const router = useRouter();
@@ -548,15 +466,6 @@ export default function OnboardingScreen() {
         }
     };
 
-    const handleShare = async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        try {
-            await Share.share({
-                message: `Join me on Couple Diary! Use my invite code: ${myInviteCode} ✨💫`,
-            });
-        } catch { }
-    };
-
     const handleCopyCode = async () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         await Clipboard.setStringAsync(myInviteCode);
@@ -619,7 +528,7 @@ export default function OnboardingScreen() {
 
             case 'otp':
                 return (
-                    <Animated.View key="otp" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                    <Animated.View key="otp" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={[styles.fieldContent, { alignItems: 'center' }]}>
                         <Text style={styles.fieldTitle}>{currentStep.title}</Text>
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
                         <View style={styles.otpRow}>
@@ -721,19 +630,22 @@ export default function OnboardingScreen() {
                                         <Text style={styles.birthdateText}>
                                             {birthDate
                                                 ? birthDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                                : 'Tap to select your birthday'}
+                                                : 'Tap to select your birthday date'}
                                         </Text>
                                     </TouchableOpacity>
                                     {showBirthPicker && (
                                         <DateTimePicker
                                             value={birthDate || new Date(2000, 0, 1)}
                                             mode="date"
-                                            display="spinner"
-                                            maximumDate={new Date()}
-                                            minimumDate={new Date(1940, 0, 1)}
-                                            onChange={(event: any, selectedDate?: Date) => {
-                                                setShowBirthPicker(false);
-                                                if (selectedDate) setBirthDate(selectedDate);
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            accentColor={Colors.softPink}
+                                            onChange={(event: DateTimePickerEvent, date?: Date) => {
+                                                if (Platform.OS === 'android') {
+                                                    setShowBirthPicker(false);
+                                                }
+                                                if (date) {
+                                                    setBirthDate(date);
+                                                }
                                             }}
                                         />
                                     )}
@@ -742,14 +654,11 @@ export default function OnboardingScreen() {
                                 <DateTimePicker
                                     value={birthDate || new Date(2000, 0, 1)}
                                     mode="date"
-                                    display="spinner"
-                                    maximumDate={new Date()}
-                                    minimumDate={new Date(1940, 0, 1)}
-                                    onChange={(event: any, selectedDate?: Date) => {
-                                        if (selectedDate) setBirthDate(selectedDate);
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    accentColor={Colors.softPink}
+                                    onChange={(event: DateTimePickerEvent, date?: Date) => {
+                                        if (date) setBirthDate(date);
                                     }}
-                                    themeVariant="dark"
-                                    style={{ alignSelf: 'center' }}
                                 />
                             )}
                         </Animated.View>
@@ -758,7 +667,7 @@ export default function OnboardingScreen() {
 
             case 'invite':
                 return (
-                    <Animated.View key="invite" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                    <Animated.View key="invite" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={{ ...styles.fieldContent, alignItems: 'center' }}>
                         <Animated.View entering={FadeIn.delay(100).duration(500)}>
                             <AvatarMerge size={s(60)} />
                         </Animated.View>
@@ -881,7 +790,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: s(60),
+        paddingTop: Spacing.xl,
     },
 
     // ─── Top bar ──────────────────────────────────────
@@ -892,20 +801,21 @@ const styles = StyleSheet.create({
         gap: Spacing.sm,
     },
     backButton: {
-        width: 36,
-        height: 36,
+        width: Spacing.xl,
+        height: Spacing.xl,
         borderRadius: 18,
         backgroundColor: Colors.white08,
         alignItems: 'center',
         justifyContent: 'center',
     },
     backArrow: {
-        fontSize: s(24),
+        ...Typography.xxl,
         color: Colors.textPrimary,
         marginTop: -2,
     },
     backPlaceholder: {
-        width: 36,
+        width: Spacing.xl,
+        height: Spacing.xl,
     },
     progressBar: {
         flex: 1,
@@ -927,11 +837,11 @@ const styles = StyleSheet.create({
         ...Typography.caption,
         fontSize: s(11),
         color: Colors.textMuted,
-        minWidth: 36,
+        minWidth: Spacing.xl,
         textAlign: 'right',
     },
     stepPlaceholder: {
-        width: 36,
+        width: Spacing.xl,
     },
 
     // ─── Content ──────────────────────────────────────
@@ -942,7 +852,7 @@ const styles = StyleSheet.create({
     },
     bottomContainer: {
         paddingHorizontal: Spacing.xl,
-        paddingBottom: s(40),
+        paddingBottom: Spacing.xl,
         alignItems: 'center',
     },
     nextButton: {
@@ -974,7 +884,7 @@ const styles = StyleSheet.create({
 
     // ─── Field screens ────────────────────────────────
     fieldContent: {
-        alignItems: 'center',
+        // alignItems: 'center',
     },
     fieldTitle: {
         ...Typography.heading,
@@ -985,7 +895,6 @@ const styles = StyleSheet.create({
     },
     fieldSubtitle: {
         ...Typography.body,
-        fontSize: s(14),
         color: Colors.textSecondary,
         textAlign: 'center',
         marginBottom: Spacing.xl,
@@ -1238,6 +1147,7 @@ const styles = StyleSheet.create({
     birthdateContainer: {
         alignItems: 'center',
         marginTop: Spacing.lg,
+        width: '100%',
     },
     birthdateButton: {
         flexDirection: 'row',
@@ -1248,7 +1158,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.lg,
         borderWidth: 1,
         borderColor: Colors.glassBorder,
-        minWidth: '80%',
+        width: '100%',
         justifyContent: 'center',
     },
     birthdateIcon: {
@@ -1260,5 +1170,4 @@ const styles = StyleSheet.create({
         fontSize: s(16),
         color: Colors.textPrimary,
     },
-
 });

@@ -6,7 +6,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { pickAndCropAvatar } from '@/utils/avatarService';
 import { useAppState } from '@/utils/store';
 import { getProfile, getUserId, updateCoupleData, updateProfile } from '@/utils/supabase';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -220,40 +220,29 @@ export default function EditProfileScreen() {
         setShow: (s: boolean) => void,
         maxDate?: Date
     ) => {
-        if (Platform.OS === 'android') {
-            return (
-                <>
-                    <TouchableOpacity onPress={() => setShow(true)} style={styles.dateButton}>
-                        <Text style={styles.dateButtonText}>{formatDate(value)}</Text>
-                    </TouchableOpacity>
-                    {show && (
-                        <DateTimePicker
-                            value={value}
-                            mode="date"
-                            display="default"
-                            maximumDate={maxDate}
-                            onChange={(event: any, selectedDate?: Date) => {
-                                setShow(false);
-                                if (selectedDate) onChange(selectedDate);
-                            }}
-                        />
-                    )}
-                </>
-            );
-        }
-
         return (
-            <DateTimePicker
-                value={value}
-                mode="date"
-                display="default"
-                maximumDate={maxDate}
-                onChange={(event: any, selectedDate?: Date) => {
-                    if (selectedDate) onChange(selectedDate);
-                }}
-                themeVariant="dark"
-                style={{ alignSelf: 'flex-start' }}
-            />
+            <>
+                <TouchableOpacity onPress={() => setShow(true)} style={styles.dateButton}>
+                    <Text style={styles.dateButtonText}>{formatDate(value)}</Text>
+                </TouchableOpacity>
+                {show && (
+                    <DateTimePicker
+                        value={value}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        accentColor={Colors.softPink}
+                        maximumDate={maxDate}
+                        onChange={(event: DateTimePickerEvent, date?: Date) => {
+                            if (Platform.OS === 'android') {
+                                setShow(false);
+                            }
+                            if (date) {
+                                onChange(date);
+                            }
+                        }}
+                    />
+                )}
+            </>
         );
     };
 
@@ -643,6 +632,20 @@ const styles = StyleSheet.create({
         ...Typography.body,
         color: Colors.textPrimary,
         fontSize: 16,
+    },
+    pickerWrapper: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: Radius.lg,
+        marginTop: Spacing.md,
+        padding: Spacing.xs,
+        width: '100%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
+        overflow: 'hidden',
+        marginBottom: Spacing.md,
     },
     avatarSection: {
         alignItems: 'center',

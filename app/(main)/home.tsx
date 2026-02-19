@@ -4,14 +4,15 @@ import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import StreakBadge from '@/components/StreakBadge';
+import UrgencyHUD from '@/components/UrgencyHUD';
 import { getLevelForStreak } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
-import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
+import { supabase } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Dimensions,
     Pressable,
@@ -40,49 +41,36 @@ const MENU_ITEMS = [
     { id: 'settings', icon: '⚙️', label: 'Settings', route: '/(main)/settings' },
 ] as const;
 
+// ─── UTC Countdown Helper ─────────────────────────────
+function getUTCCountdown(): string {
+    const now = new Date();
+    const nextUTC = new Date(Date.UTC(
+        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0
+    ));
+    const diff = nextUTC.getTime() - now.getTime();
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
 export default function HomeScreen() {
     const router = useRouter();
-    const { state, update } = useAppState();
+    const { state } = useAppState();
     const [menuOpen, setMenuOpen] = useState(false);
     const [ctaState, setCtaState] = useState<'answer' | 'waiting' | 'reveal' | 'done'>('answer');
     const [dailyId, setDailyId] = useState('');
+    const [countdown, setCountdown] = useState(getUTCCountdown());
+    const [nudgeSent, setNudgeSent] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const currentLevel = getLevelForStreak(state.streakCount);
-    // const progress = getStreakProgress(state.streakCount); // Unused
 
-    // Check today's answer status on mount
+    // Check today's question/answer status on mount.
+    // Profile data is already fetched & guarded by (main)/_layout.tsx — no need to repeat it here.
     useEffect(() => {
         (async () => {
             try {
-                // Refresh profile/couple data to get latest streak and partner info
-                const profile = await (await import('@/utils/supabase')).getProfile();
-                if (profile) {
-                    if (!profile.couple_id) {
-                        router.replace('/onboarding');
-                        return;
-                    }
-                    update({
-                        streakCount: profile.streak_count,
-                        bestStreak: profile.best_streak,
-                        partnerName: profile.partner_name,
-                        userFirstName: profile.first_name || profile.name,
-                        userLastName: profile.last_name || '',
-                        userEmail: profile.email || '',
-                        userGender: profile.gender || '',
-                        userBirthDate: profile.birth_date || '',
-                        relationshipDate: profile.relationship_date || '',
-                        topicPreferences: profile.topic_preferences || [],
-                        lives: profile.lives || 1,
-                        hasPartner: true,
-                        questionsAnswered: profile.questions_answered || 0,
-                        avatarUrl: profile.avatar_url || '',
-                        partnerAvatarUrl: profile.partner_avatar_url || '',
-                        reminderTime: profile.reminder_time || '',
-                        coupleVibe: profile.couple_vibe || '',
-                        coupleEditorId: profile.editor_user_id || '',
-                    });
-                }
-
                 const q = await QuestionService.getTodayQuestion();
                 if (!q) {
                     setCtaState('answer');
@@ -104,17 +92,49 @@ export default function HomeScreen() {
         })();
     }, []);
 
-    const toggleMenu = () => {
+    // ─── UTC Countdown Ticker ─────────────────────────
+    useEffect(() => {
+        timerRef.current = setInterval(() => setCountdown(getUTCCountdown()), 1000);
+        return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    }, []);
+
+    const toggleMenu = useCallback(() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setMenuOpen(prev => !prev);
-    };
+    }, []);
 
-    const handleMenuItemPress = (route: string) => {
+    const handleNudge = useCallback(async () => {
+        if (nudgeSent) return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setNudgeSent(true);
+        // update({ lastNudgeTime: new Date().toISOString() }); // Optional: track via store
+        setTimeout(() => setNudgeSent(false), 30000); // 30s local cooldown
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('couple_id')
+                    .eq('id', user.id)
+                    .single();
+                if (profile?.couple_id) {
+                    await supabase.from('nudges').insert({
+                        sender_id: user.id,
+                        couple_id: profile.couple_id,
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('Nudge insert error:', err);
+        }
+    }, [nudgeSent]);
+
+    const handleMenuItemPress = useCallback((route: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        // Small delay to allow ripple/animation if needed, but immediate feels snappier
         router.push(route as any);
         setMenuOpen(false);
-    };
+    }, [router]);
 
     return (
         <GradientBackground>
@@ -152,6 +172,13 @@ export default function HomeScreen() {
                 )}
 
                 {/* Unified Footer Bar */}
+                <UrgencyHUD
+                    state={ctaState}
+                    countdown={countdown}
+                    partnerName={state.partnerName || 'Partner'}
+                    onNudge={handleNudge}
+                    nudgeSent={nudgeSent}
+                />
                 <Animated.View entering={FadeInUp.delay(800).duration(800)} style={styles.floatingBar}>
                     <View style={[styles.unifiedFooter, menuOpen && styles.unifiedFooterActive]}>
                         {/* Menu Toggle Button */}
@@ -175,8 +202,8 @@ export default function HomeScreen() {
                                     <GlowButton
                                         title={
                                             ctaState === 'waiting' ? 'Waiting for Partner 💫' :
-                                                ctaState === 'reveal' ? 'See Today\'s Reveal ✨' :
-                                                    'Today\'s Question ✨'
+                                                ctaState === 'reveal' ? "See Today's Reveal ✨" :
+                                                    "Today's Question ✨"
                                         }
                                         onPress={() => {
                                             if (ctaState === 'waiting') {
@@ -239,11 +266,11 @@ const styles = StyleSheet.create({
     },
     coupleNames: {
         ...Typography.bodySemiBold,
-        fontSize: 16,
+        fontSize: Typography.lg.fontSize,
     },
     levelLabel: {
         ...Typography.caption,
-        fontSize: 12,
+        fontSize: Typography.sm.fontSize,
         color: Colors.goldSparkle,
         marginTop: 1,
     },
@@ -255,7 +282,7 @@ const styles = StyleSheet.create({
     },
     galaxyLabel: {
         ...Typography.body,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
         color: Colors.textSecondary,
         marginTop: Spacing.xxl,
         letterSpacing: 1,
@@ -263,44 +290,48 @@ const styles = StyleSheet.create({
 
     // ─── Floating Bottom Bar ─────────────────────────
     floatingBar: {
-        paddingBottom: 36,
+        paddingBottom: 32,
+        paddingHorizontal: Spacing.sm,
         zIndex: 20,
     },
     unifiedFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.cardBg,
+        backgroundColor: 'rgba(18, 10, 40, 0.85)',
         borderRadius: Radius.full,
         borderWidth: 1,
-        borderColor: Colors.glassBorder,
-        padding: 7, // More room
+        borderColor: 'rgba(255,255,255,0.10)',
+        padding: 5,
         gap: 8,
         ...Shadows.soft,
-        minHeight: 74, // Final height boost
     },
     unifiedFooterActive: {
-        backgroundColor: Colors.cardBgSolid,
+        backgroundColor: 'rgba(28, 14, 56, 0.95)',
         borderColor: Colors.softPink,
     },
     menuButton: {
-        width: 60, // Scaled up
-        height: 60,
-        borderRadius: 30,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.12)',
     },
     menuButtonActive: {
-        backgroundColor: Colors.white08,
+        backgroundColor: 'rgba(255,255,255,0.14)',
+        borderColor: Colors.softPink,
     },
     menuButtonText: {
-        fontSize: s(22),
+        fontSize: Typography.lg.fontSize,
         color: Colors.textPrimary,
     },
 
     // ─── Dynamic Footer Content ──────────────────────
     dynamicFooterContent: {
         flex: 1,
-        height: 60, // Match button height
+        height: 44, // Match button height
         justifyContent: 'center',
     },
     ctaContainer: {
@@ -323,19 +354,19 @@ const styles = StyleSheet.create({
     horizontalMenuItem: {
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: 50,
+        minWidth: 44,
     },
     menuIconCircle: {
         alignItems: 'center',
         justifyContent: 'center',
     },
     horizontalMenuIcon: {
-        fontSize: s(20), // Slightly larger
+        fontSize: Typography.lg.fontSize, // Slightly larger
         marginBottom: 2,
     },
     horizontalMenuLabel: {
         ...Typography.caption,
-        fontSize: 10,
+        fontSize: Typography.xs.fontSize,
         color: Colors.textSecondary,
         fontWeight: '500',
     },

@@ -214,12 +214,11 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         ...Typography.bodySemiBold,
-        fontSize: 18,
+        fontSize: Typography.h3.fontSize,
     },
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
     },
     editButton: {
         padding: Spacing.sm,
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
     editText: {
         ...Typography.caption,
         color: Colors.softPink,
-        fontSize: 15,
+        fontSize: Typography.md.fontSize,
         fontWeight: '600',
     },
     scrollContent: {
@@ -241,12 +240,12 @@ const styles = StyleSheet.create({
     },
     coupleNames: {
         ...Typography.heading,
-        fontSize: 24,
+        fontSize: Typography.xxl.fontSize,
         marginTop: Spacing.md,
     },
     since: {
         ...Typography.caption,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
     },
     streakRow: {
         paddingHorizontal: Spacing.lg,
@@ -265,12 +264,12 @@ const styles = StyleSheet.create({
     },
     statValue: {
         ...Typography.heading,
-        fontSize: 28,
+        fontSize: Typography.xxl.fontSize,
         marginBottom: 4,
     },
     statLabel: {
         ...Typography.caption,
-        fontSize: 11,
+        fontSize: Typography.sm.fontSize,
         textAlign: 'center',
         lineHeight: 16,
     },
@@ -280,7 +279,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         ...Typography.bodySemiBold,
-        fontSize: 17,
+        fontSize: Typography.lg.fontSize,
         marginHorizontal: Spacing.lg,
         marginBottom: Spacing.md,
         color: Colors.textPrimary,
@@ -297,7 +296,7 @@ const styles = StyleSheet.create({
         paddingVertical: Spacing.sm,
     },
     detailIcon: {
-        fontSize: 20,
+        fontSize: Typography.xl.fontSize,
         marginRight: Spacing.md,
         width: 30,
         textAlign: 'center',
@@ -308,13 +307,13 @@ const styles = StyleSheet.create({
     detailLabel: {
         ...Typography.caption,
         color: Colors.textMuted,
-        fontSize: 12,
+        fontSize: Typography.sm.fontSize,
         marginBottom: 2,
     },
     detailValue: {
         ...Typography.body,
         color: Colors.textPrimary,
-        fontSize: 15,
+        fontSize: Typography.md.fontSize,
     },
     divider: {
         height: 1,
@@ -337,12 +336,12 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     topicIcon: {
-        fontSize: 16,
+        fontSize: Typography.lg.fontSize,
     },
     topicLabel: {
         ...Typography.caption,
         color: Colors.textSecondary,
-        fontSize: 14,
+        fontSize: Typography.md.fontSize,
     },
     emptyText: {
         ...Typography.caption,

@@ -1,6 +1,7 @@
 import GlassCard from '@/components/GlassCard';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Gradients, Radius, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
@@ -9,7 +10,7 @@ import { incrementStreak } from '@/utils/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -74,9 +75,44 @@ export default function RevealScreen() {
         return (
             <GradientBackground variant="full">
                 <StarBackground />
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color={Colors.softPink} />
-                    <Text style={styles.loadingText}>Preparing the reveal...</Text>
+                <View style={styles.scrollContent}>
+                    {/* Title Skeleton */}
+                    <View style={{ alignItems: 'center', marginBottom: Spacing.xl }}>
+                        <SkeletonLoader.Line width={200} height={32} style={{ marginBottom: 8 }} />
+                        <SkeletonLoader.Line width={140} height={16} />
+                    </View>
+
+                    {/* Question Skeleton */}
+                    <View style={{ alignItems: 'center', marginBottom: Spacing.xl, paddingHorizontal: Spacing.lg }}>
+                        <SkeletonLoader.Line width="100%" height={20} />
+                        <SkeletonLoader.Line width="80%" height={20} />
+                    </View>
+
+                    {/* Answer Cards Skeleton */}
+                    <View style={{ marginBottom: Spacing.md }}>
+                        <GlassCard style={styles.answerCard}>
+                            <View style={styles.cardHeader}>
+                                <SkeletonLoader.Base width={8} height={8} borderRadius={4} />
+                                <SkeletonLoader.Line width={80} height={14} style={{ marginBottom: 0 }} />
+                            </View>
+                            <SkeletonLoader.Line width="90%" height={16} />
+                            <SkeletonLoader.Line width="60%" height={16} />
+                        </GlassCard>
+                    </View>
+
+                    <View style={{ marginBottom: Spacing.xl }}>
+                        <GlassCard style={styles.answerCard}>
+                            <View style={styles.cardHeader}>
+                                <SkeletonLoader.Base width={8} height={8} borderRadius={4} />
+                                <SkeletonLoader.Line width={100} height={14} style={{ marginBottom: 0 }} />
+                            </View>
+                            <SkeletonLoader.Line width="95%" height={16} />
+                            <SkeletonLoader.Line width="75%" height={16} />
+                        </GlassCard>
+                    </View>
+
+                    {/* Streak Banner Skeleton */}
+                    <SkeletonLoader.Base width="100%" height={80} borderRadius={Radius.lg} />
                 </View>
             </GradientBackground>
         );

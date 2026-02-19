@@ -48,6 +48,7 @@ export const Gradients = {
   card: ['rgba(30, 25, 60, 0.8)', 'rgba(45, 35, 75, 0.6)'] as const,
   glass: ['rgba(255,255,255,0.12)', 'rgba(255,255,255,0.04)'] as const,
   streakBanner: ['#FF8C42', '#FF6B6B', '#E86A9E'] as const,
+  danger: ['#FF6B6B', '#E86A6A', '#D64545'] as const,
 };
 
 // ─── Typography ───────────────────────────────────────
@@ -62,26 +63,37 @@ export const Typography = {
   },
   h3: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: s(20),
+    fontSize: s(18),
     color: Colors.textPrimary,
   },
   body: {
     fontFamily: 'Inter_400Regular',
+    fontSize: s(14),
     color: Colors.textPrimary,
   },
   bodyMedium: {
     fontFamily: 'Inter_500Medium',
+    fontSize: s(14),
     color: Colors.textPrimary,
   },
   bodySemiBold: {
     fontFamily: 'Inter_600SemiBold',
+    fontSize: s(14),
     color: Colors.textPrimary,
   },
   caption: {
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
-    fontSize: s(13),
+    fontSize: s(12),
   },
+  // Token aliases
+  xs: { fontSize: s(10) },
+  sm: { fontSize: s(12) },
+  md: { fontSize: s(14) },
+  lg: { fontSize: s(16) },
+  xl: { fontSize: s(20) },
+  xxl: { fontSize: s(24) },
+  xxxl: { fontSize: s(32) },
 };
 
 // ─── Spacing & Layout ─────────────────────────────────
@@ -111,20 +123,20 @@ export const Shadows = {
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 4,
+    // elevation: 4,
   },
   glow: {
     shadowColor: '#9B4DCA',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 16,
-    elevation: 8,
+    // elevation: 8,
   },
   glowPink: {
     shadowColor: Colors.softPink,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
-    elevation: 8,
+    // elevation: 8,
   },
 };

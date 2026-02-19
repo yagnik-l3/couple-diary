@@ -236,11 +236,11 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
+        fontSize: Typography.md.fontSize,
     },
     headerTitle: {
         ...Typography.heading,
-        fontSize: s(20),
+        fontSize: Typography.xl.fontSize,
     },
     placeholder: { width: 50 },
     dateRow: {
@@ -252,18 +252,18 @@ const styles = StyleSheet.create({
     },
     dateLabel: {
         ...Typography.bodySemiBold,
-        fontSize: s(14),
+        fontSize: Typography.md.fontSize,
         color: Colors.goldSparkle,
     },
     savingText: {
         ...Typography.body,
-        fontSize: s(12),
+        fontSize: Typography.sm.fontSize,
         color: Colors.textMuted,
         fontStyle: 'italic',
     },
     savedText: {
         ...Typography.bodySemiBold,
-        fontSize: s(12),
+        fontSize: Typography.sm.fontSize,
         color: '#5CE05C',
     },
     inputContainer: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     },
     textInput: {
         ...Typography.body,
-        fontSize: s(16),
+        fontSize: Typography.lg.fontSize,
         color: Colors.textPrimary,
         lineHeight: s(26),
         flex: 1,

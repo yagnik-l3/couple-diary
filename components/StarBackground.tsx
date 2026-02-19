@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, {
     Easing,
@@ -12,18 +12,17 @@ import Animated, {
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-// ─── Star colors for cosmic variety ───────────────────
+// ─── Star colors ──────────────────────────────────────
 const STAR_PALETTE = [
-    '#FFFFFF',      // pure white
-    '#E8D5F5',      // soft lavender
-    '#B8E0F7',      // cool blue
-    '#F5D08A',      // warm gold
-    '#C77DB8',      // soft pink
-    '#B8A9E8',      // lavender accent
-    '#FFDDE1',      // rose white
+    '#FFFFFF',
+    '#E8D5F5',
+    '#B8E0F7',
+    '#F5D08A',
+    '#C77DB8',
+    '#B8A9E8',
+    '#FFDDE1',
 ];
 
-// ─── Same palette used for streak stars inside galaxy ─
 const STREAK_STAR_COLORS = [
     '#FFFFFF',
     Colors.lavender,
@@ -33,15 +32,12 @@ const STREAK_STAR_COLORS = [
     '#B8E0F7',
 ];
 
-interface Star {
+interface StarData {
     x: number;
     y: number;
     size: number;
-    delay: number;
-    duration: number;
     color: string;
-    minOpacity: number;
-    maxOpacity: number;
+    opacity: number;
 }
 
 // Deterministic seeded random
@@ -50,98 +46,74 @@ function seededRand(seed: number): number {
     return x - Math.floor(x);
 }
 
-// ─── Static ambient background stars ─────────────────
-const generateAmbientStars = (): Star[] => {
-    const stars: Star[] = [];
+// ─── Generate static star positions ───────────────────
+const generateAmbientStars = (): { far: StarData[]; mid: StarData[]; near: StarData[] } => {
     let seed = 42;
 
-    // Far stars (80 tiny dim stars)
+    const far: StarData[] = [];
     for (let i = 0; i < 80; i++) {
         seed++;
-        stars.push({
+        far.push({
             x: seededRand(seed) * SCREEN_W,
             y: seededRand(seed + 100) * SCREEN_H,
             size: 0.8 + seededRand(seed + 200) * 1.2,
-            delay: seededRand(seed + 300) * 5000,
-            duration: 3000 + seededRand(seed + 400) * 4000,
             color: '#FFFFFF',
-            minOpacity: 0.1,
-            maxOpacity: 0.35,
+            opacity: 0.2,
         });
     }
 
-    // Mid stars (50 small colored stars)
+    const mid: StarData[] = [];
     for (let i = 0; i < 50; i++) {
         seed++;
         const colorIdx = Math.floor(seededRand(seed + 500) * STAR_PALETTE.length);
-        stars.push({
+        mid.push({
             x: seededRand(seed) * SCREEN_W,
             y: seededRand(seed + 100) * SCREEN_H,
             size: 1.5 + seededRand(seed + 200) * 1.5,
-            delay: seededRand(seed + 300) * 4000,
-            duration: 2000 + seededRand(seed + 400) * 3000,
             color: STAR_PALETTE[colorIdx],
-            minOpacity: 0.15,
-            maxOpacity: 0.6,
+            opacity: 0.35,
         });
     }
 
-    // Near stars (25 prominent sparkle stars)
+    const near: StarData[] = [];
     for (let i = 0; i < 25; i++) {
         seed++;
         const colorIdx = Math.floor(seededRand(seed + 500) * STAR_PALETTE.length);
-        stars.push({
+        near.push({
             x: seededRand(seed) * SCREEN_W,
             y: seededRand(seed + 100) * SCREEN_H,
             size: 2.5 + seededRand(seed + 200) * 2,
-            delay: seededRand(seed + 300) * 3000,
-            duration: 1500 + seededRand(seed + 400) * 2500,
             color: STAR_PALETTE[colorIdx],
-            minOpacity: 0.2,
-            maxOpacity: 0.85,
+            opacity: 0.55,
         });
     }
 
-    return stars;
+    return { far, mid, near };
 };
 
-// ─── Streak-based stars spread across the screen ──────
-// These mirror the galaxy stars but are placed around the full background
-const generateStreakStars = (streakCount: number): Star[] => {
-    const count = Math.min(streakCount, 120); // up to 120 background streak stars
-    const stars: Star[] = [];
+// Pre-generate ambient stars once at module level (never re-created)
+const AMBIENT_STARS = generateAmbientStars();
 
-    for (let i = 0; i < count; i++) {
-        const seed = i + 1000; // offset seed so positions differ from galaxy & ambient stars
-        const colorIdx = Math.floor(seededRand(seed + 300) * STREAK_STAR_COLORS.length);
-        const starSize = 1.2 + seededRand(seed + 200) * 2.8; // 1.2–4px
-        stars.push({
-            x: seededRand(seed) * SCREEN_W,
-            y: seededRand(seed + 100) * SCREEN_H,
-            size: starSize,
-            delay: seededRand(seed + 400) * 4000,
-            duration: 2000 + seededRand(seed + 500) * 3000,
-            color: STREAK_STAR_COLORS[colorIdx],
-            minOpacity: 0.15 + seededRand(seed + 600) * 0.15,
-            maxOpacity: 0.5 + seededRand(seed + 700) * 0.4,
-        });
-    }
+// ─── Batched Animated Layer ────────────────────────────
+// One Animated.View per group — runs entirely on the UI thread.
+// All stars in the group share the same opacity animation.
+interface StarLayerProps {
+    stars: StarData[];
+    minOpacity: number;
+    maxOpacity: number;
+    duration: number;
+    delay: number;
+}
 
-    return stars;
-};
+const StarLayer: React.FC<StarLayerProps> = ({ stars, minOpacity, maxOpacity, duration, delay }) => {
+    // Single shared value for the entire layer — UI thread only
+    const opacity = useSharedValue(minOpacity);
 
-// ─── Animated star dot ────────────────────────────────
-const StarDot: React.FC<{ star: Star }> = ({ star }) => {
-    const opacity = useSharedValue(star.minOpacity);
-
-    useEffect(() => {
+    React.useEffect(() => {
         opacity.value = withDelay(
-            star.delay,
+            delay,
             withRepeat(
-                withTiming(star.maxOpacity, {
-                    duration: star.duration,
-                    easing: Easing.inOut(Easing.ease),
-                }),
+                withTiming(maxOpacity, { duration, easing: Easing.inOut(Easing.ease) }),
                 -1,
                 true,
             ),
@@ -153,47 +125,99 @@ const StarDot: React.FC<{ star: Star }> = ({ star }) => {
     }));
 
     return (
-        <Animated.View
-            style={[
-                styles.star,
-                {
-                    left: star.x,
-                    top: star.y,
-                    width: star.size,
-                    height: star.size,
-                    borderRadius: star.size / 2,
-                    backgroundColor: star.color,
-                },
-                animStyle,
-            ]}
-        />
+        <Animated.View style={[StyleSheet.absoluteFill, animStyle]} pointerEvents="none">
+            {stars.map((star, i) => (
+                <View
+                    key={i}
+                    style={{
+                        position: 'absolute',
+                        left: star.x,
+                        top: star.y,
+                        width: star.size,
+                        height: star.size,
+                        borderRadius: star.size / 2,
+                        backgroundColor: star.color,
+                        opacity: star.opacity,
+                    }}
+                />
+            ))}
+        </Animated.View>
     );
 };
 
-// Ambient stars are static — generated once
-const ambientStars = generateAmbientStars();
+// ─── Streak Stars Layer ────────────────────────────────
+const generateStreakStars = (streakCount: number): StarData[] => {
+    const count = Math.min(streakCount, 120);
+    const stars: StarData[] = [];
+    for (let i = 0; i < count; i++) {
+        const seed = i + 1000;
+        const colorIdx = Math.floor(seededRand(seed + 300) * STREAK_STAR_COLORS.length);
+        const starSize = 1.2 + seededRand(seed + 200) * 2.8;
+        stars.push({
+            x: seededRand(seed) * SCREEN_W,
+            y: seededRand(seed + 100) * SCREEN_H,
+            size: starSize,
+            color: STREAK_STAR_COLORS[colorIdx],
+            opacity: 0.25 + seededRand(seed + 600) * 0.35,
+        });
+    }
+    return stars;
+};
 
+// ─── Main Component ───────────────────────────────────
 interface Props {
     streakCount?: number;
 }
 
 export default function StarBackground({ streakCount = 0 }: Props) {
-    // Streak stars are memoized — regenerate only when streak changes
-    const streakStars = useMemo(
-        () => generateStreakStars(streakCount),
-        [streakCount],
-    );
+    const streakStars = useMemo(() => generateStreakStars(streakCount), [streakCount]);
 
     return (
         <View style={styles.container} pointerEvents="none">
-            {/* Ambient base layer */}
-            {ambientStars.map((star, i) => (
-                <StarDot key={`a-${i}`} star={star} />
-            ))}
-            {/* Streak-driven stars — grow with your journey */}
-            {streakStars.map((star, i) => (
-                <StarDot key={`s-${i}`} star={star} />
-            ))}
+            {/* Far stars — slow, dim shimmer */}
+            <StarLayer
+                stars={AMBIENT_STARS.far}
+                minOpacity={0.6}
+                maxOpacity={1.0}
+                duration={5000}
+                delay={0}
+            />
+            {/* Mid stars — medium shimmer */}
+            <StarLayer
+                stars={AMBIENT_STARS.mid}
+                minOpacity={0.5}
+                maxOpacity={1.0}
+                duration={3500}
+                delay={800}
+            />
+            {/* Near stars — brighter, faster shimmer */}
+            <StarLayer
+                stars={AMBIENT_STARS.near}
+                minOpacity={0.4}
+                maxOpacity={1.0}
+                duration={2500}
+                delay={400}
+            />
+            {/* Streak stars — static, no animation needed */}
+            {streakStars.length > 0 && (
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    {streakStars.map((star, i) => (
+                        <View
+                            key={i}
+                            style={{
+                                position: 'absolute',
+                                left: star.x,
+                                top: star.y,
+                                width: star.size,
+                                height: star.size,
+                                borderRadius: star.size / 2,
+                                backgroundColor: star.color,
+                                opacity: star.opacity,
+                            }}
+                        />
+                    ))}
+                </View>
+            )}
         </View>
     );
 }
@@ -202,8 +226,5 @@ const styles = StyleSheet.create({
     container: {
         ...StyleSheet.absoluteFillObject,
         zIndex: 0,
-    },
-    star: {
-        position: 'absolute',
     },
 });

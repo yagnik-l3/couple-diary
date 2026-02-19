@@ -132,9 +132,8 @@ const styles = StyleSheet.create({
     },
     tagline: {
         ...Typography.body,
-        fontSize: 16,
         color: Colors.textSecondary,
-        marginTop: Spacing.xl,
+        marginTop: Spacing.xxl,
         letterSpacing: 1,
     },
 });

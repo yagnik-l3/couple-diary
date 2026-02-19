@@ -2,6 +2,7 @@ import { Gradients } from '@/constants/theme';
 import { LinearGradient, LinearGradientProps } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Props extends Partial<LinearGradientProps> {
     children: React.ReactNode;
@@ -20,13 +21,18 @@ export default function GradientBackground({
 
     return (
         <LinearGradient colors={safeColors as any} style={[styles.container, style]} {...rest}>
-            {children}
+            <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+                {children}
+            </SafeAreaView>
         </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
+        flex: 1,
+    },
+    safeArea: {
         flex: 1,
     },
 });

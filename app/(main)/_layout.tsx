@@ -1,10 +1,11 @@
+import { useAppState } from '@/utils/store';
 import { getProfile } from '@/utils/supabase';
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export default function MainLayout() {
     const router = useRouter();
-    const [checked, setChecked] = useState(false);
+    const { update } = useAppState();
 
     useEffect(() => {
         (async () => {
@@ -15,10 +16,30 @@ export default function MainLayout() {
                     router.replace('/onboarding?resume=invite');
                     return;
                 }
+                // Refresh store with latest profile data — done once here so
+                // individual screens (home, etc.) don't need to re-fetch.
+                update({
+                    streakCount: profile.streak_count,
+                    bestStreak: profile.best_streak,
+                    partnerName: profile.partner_name,
+                    userFirstName: profile.first_name || profile.name,
+                    userLastName: profile.last_name || '',
+                    userEmail: profile.email || '',
+                    userGender: profile.gender || '',
+                    userBirthDate: profile.birth_date || '',
+                    relationshipDate: profile.relationship_date || '',
+                    topicPreferences: profile.topic_preferences || [],
+                    lives: profile.lives || 1,
+                    hasPartner: true,
+                    questionsAnswered: profile.questions_answered || 0,
+                    avatarUrl: profile.avatar_url || '',
+                    partnerAvatarUrl: profile.partner_avatar_url || '',
+                    reminderTime: profile.reminder_time || '',
+                    coupleVibe: profile.couple_vibe || '',
+                    coupleEditorId: profile.editor_user_id || '',
+                });
             } catch {
                 // If profile fetch fails, let them through (auth guard handles the rest)
-            } finally {
-                setChecked(true);
             }
         })();
     }, []);
