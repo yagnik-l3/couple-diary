@@ -184,8 +184,6 @@ export default function QuestionScreen() {
 const styles = StyleSheet.create({
     flex: { flex: 1 },
     header: {
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -217,7 +215,7 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     backButton: {
-        marginBottom: Spacing.lg,
+        // marginBottom: Spacing.lg,
     },
     backText: {
         ...Typography.body,

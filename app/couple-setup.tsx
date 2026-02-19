@@ -1,21 +1,20 @@
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import PremiumDatePicker from '@/components/PremiumDatePicker';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { completeOnboarding as markOnboardingComplete, updateCoupleData, updateProfile } from '@/utils/supabase';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Platform,
     ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import Animated, {
     FadeIn,
@@ -245,48 +244,30 @@ export default function CoupleSetupScreen() {
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
 
                         <Animated.View entering={FadeInUp.delay(200).duration(400).springify()} style={styles.dateContainer}>
-                            {Platform.OS === 'android' ? (
-                                <>
-                                    <TouchableOpacity
-                                        onPress={() => setShowDatePicker(true)}
-                                        style={styles.dateButton}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.dateIcon}>💞</Text>
-                                        <Text style={styles.dateText}>
-                                            {relationshipDate
-                                                ? relationshipDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                                : 'Tap to select the date'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                    {showDatePicker && (
-                                        <DateTimePicker
-                                            value={relationshipDate || new Date()}
-                                            mode="date"
-                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                            accentColor={Colors.softPink}
-                                            onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                if (Platform.OS === 'android') {
-                                                    setShowDatePicker(false);
-                                                }
-                                                if (date) {
-                                                    setRelationshipDate(date);
-                                                }
-                                            }}
-                                        />
-                                    )}
-                                </>
-                            ) : (
-                                <DateTimePicker
-                                    value={relationshipDate || new Date()}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    accentColor={Colors.softPink}
-                                    onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                        if (date) setRelationshipDate(date);
+                            <>
+                                <TouchableOpacity
+                                    onPress={() => setShowDatePicker(true)}
+                                    style={styles.dateButton}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.dateIcon}>💞</Text>
+                                    <Text style={styles.dateText}>
+                                        {relationshipDate
+                                            ? relationshipDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                            : 'Tap to select the date'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <PremiumDatePicker
+                                    visible={showDatePicker}
+                                    onClose={() => setShowDatePicker(false)}
+                                    initialDate={relationshipDate || new Date()}
+                                    maxDate={new Date()}
+                                    title="Our Love Story Began"
+                                    onDateSelected={(date) => {
+                                        setRelationshipDate(date);
                                     }}
                                 />
-                            )}
+                            </>
                         </Animated.View>
                     </Animated.View>
                 );
@@ -423,7 +404,8 @@ export default function CoupleSetupScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: s(60),
+        paddingTop: Spacing.xl,
+        // paddingTop: s(60),
     },
     topBar: {
         flexDirection: 'row',

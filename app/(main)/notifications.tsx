@@ -229,7 +229,7 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: s(56),
+        paddingTop: Spacing.xs,
     },
     header: {
         flexDirection: 'row',

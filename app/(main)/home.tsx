@@ -250,7 +250,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingTop: 56,
+        paddingTop: Spacing.xs,
         paddingHorizontal: Spacing.lg,
     },
     topSection: {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
 
     // ─── Floating Bottom Bar ─────────────────────────
     floatingBar: {
-        paddingBottom: 32,
+        paddingBottom: Spacing.sm,
         paddingHorizontal: Spacing.sm,
         zIndex: 20,
     },
@@ -301,8 +301,8 @@ const styles = StyleSheet.create({
         borderRadius: Radius.full,
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.10)',
-        padding: 5,
-        gap: 8,
+        padding: Spacing.sm,
+        gap: Spacing.sm,
         ...Shadows.soft,
     },
     unifiedFooterActive: {
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     // ─── Dynamic Footer Content ──────────────────────
     dynamicFooterContent: {
         flex: 1,
-        height: 44, // Match button height
+        // height: 44, // Match button height
         justifyContent: 'center',
     },
     ctaContainer: {

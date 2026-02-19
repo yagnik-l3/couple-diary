@@ -1,12 +1,12 @@
 import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
+import PremiumDatePicker from '@/components/PremiumDatePicker';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { pickAndCropAvatar } from '@/utils/avatarService';
 import { useAppState } from '@/utils/store';
 import { getProfile, getUserId, updateCoupleData, updateProfile } from '@/utils/supabase';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -225,23 +225,13 @@ export default function EditProfileScreen() {
                 <TouchableOpacity onPress={() => setShow(true)} style={styles.dateButton}>
                     <Text style={styles.dateButtonText}>{formatDate(value)}</Text>
                 </TouchableOpacity>
-                {show && (
-                    <DateTimePicker
-                        value={value}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        accentColor={Colors.softPink}
-                        maximumDate={maxDate}
-                        onChange={(event: DateTimePickerEvent, date?: Date) => {
-                            if (Platform.OS === 'android') {
-                                setShow(false);
-                            }
-                            if (date) {
-                                onChange(date);
-                            }
-                        }}
-                    />
-                )}
+                <PremiumDatePicker
+                    visible={show}
+                    onClose={() => setShow(false)}
+                    initialDate={value}
+                    maxDate={maxDate}
+                    onDateSelected={onChange}
+                />
             </>
         );
     };
@@ -461,15 +451,14 @@ export default function EditProfileScreen() {
 
 const styles = StyleSheet.create({
     content: {
-        paddingBottom: 40,
+        paddingBottom: Spacing.lg,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 60,
+        paddingTop: Spacing.xs,
         paddingHorizontal: Spacing.lg,
-        paddingBottom: Spacing.md,
     },
     backButton: {
         padding: Spacing.sm,
@@ -499,7 +488,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...Typography.h3,
         color: Colors.textPrimary,
-        marginBottom: Spacing.sm,
+        marginBottom: Spacing.lg,
     },
     sectionHeader: {
         flexDirection: 'row',

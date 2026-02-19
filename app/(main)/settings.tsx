@@ -3,16 +3,13 @@ import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import ToggleSwitch from '@/components/ToggleSwitch';
-import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { Colors, Spacing, Typography } from '@/constants/theme';
 import { useAppState } from '@/utils/store';
-import { getInviteCode } from '@/utils/supabase';
+import { deleteUserAccount, getInviteCode, signOut } from '@/utils/supabase';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Modal,
-    Pressable,
     ScrollView,
     Share,
     StyleSheet,
@@ -74,17 +71,28 @@ export default function SettingsScreen() {
         visible: boolean;
         type: 'logout' | 'delete' | null;
     }>({ visible: false, type: null });
+    const [actionLoading, setActionLoading] = useState(false);
 
     const isPaired = state.hasPartner;
 
-    const handleConfirmAction = useCallback(() => {
-        if (actionSheet.type === 'logout') {
-            reset();
-            router.replace('/onboarding');
-        } else if (actionSheet.type === 'delete') {
-            // TODO: Call API to delete account
-            reset();
-            router.replace('/onboarding');
+    const handleConfirmAction = useCallback(async () => {
+        setActionLoading(true);
+        try {
+            if (actionSheet.type === 'logout') {
+                await signOut();
+                reset();
+                router.replace('/onboarding');
+            } else if (actionSheet.type === 'delete') {
+                await deleteUserAccount();
+                reset();
+                router.replace('/onboarding');
+            }
+            setActionSheet({ visible: false, type: null });
+        } catch (error) {
+            console.error('Action failed:', error);
+            // Maybe add an alert here
+        } finally {
+            setActionLoading(false);
         }
     }, [actionSheet.type, reset, router]);
 
@@ -226,80 +234,6 @@ export default function SettingsScreen() {
                 <View style={styles.bottomSpacer} />
             </ScrollView>
 
-            {/* ─── Invite Code Modal ──────────────────────────── */}
-            <Modal
-                visible={inviteModalVisible}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setInviteModalVisible(false)}
-            >
-                <Pressable
-                    style={styles.modalOverlay}
-                    onPress={() => setInviteModalVisible(false)}
-                >
-                    <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-                        {/* Header */}
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalEmoji}>💌</Text>
-                            <Text style={styles.modalTitle}>Invite Partner</Text>
-                            <TouchableOpacity
-                                onPress={() => setInviteModalVisible(false)}
-                                style={styles.modalClose}
-                            >
-                                <Text style={styles.modalCloseText}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Status */}
-                        {isPaired ? (
-                            <View style={styles.pairedBanner}>
-                                <Text style={styles.pairedIcon}>✅</Text>
-                                <Text style={styles.pairedText}>Partner connected!</Text>
-                            </View>
-                        ) : (
-                            <Text style={styles.modalSubtitle}>
-                                Share this code with your partner to connect your accounts
-                            </Text>
-                        )}
-
-                        {/* Code */}
-                        {loadingCode ? (
-                            <View style={styles.codeLoading}>
-                                <ActivityIndicator size="small" color={Colors.softPink} />
-                            </View>
-                        ) : (
-                            <View style={styles.codeContainer}>
-                                <Text style={styles.codeLabel}>Your Invite Code</Text>
-                                <Text style={styles.codeText}>{inviteCode}</Text>
-                            </View>
-                        )}
-
-                        {/* Actions */}
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.copyButton]}
-                                onPress={handleCopy}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.actionIcon}>{copied ? '✓' : '📋'}</Text>
-                                <Text style={[styles.actionText, copied && styles.copiedText]}>
-                                    {copied ? 'Copied!' : 'Copy Code'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.actionButton, styles.shareButton]}
-                                onPress={handleShare}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.actionIcon}>📤</Text>
-                                <Text style={styles.actionText}>Share</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </Pressable>
-                </Pressable>
-            </Modal>
-
             {/* ─── Action Sheet ───────────────────────────────── */}
             <ActionSheet
                 visible={actionSheet.visible}
@@ -314,6 +248,7 @@ export default function SettingsScreen() {
                 confirmLabel={actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account'}
                 onConfirm={handleConfirmAction}
                 isDestructive
+                loading={actionLoading}
             />
         </GradientBackground>
     );
@@ -324,7 +259,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 60,
+        paddingTop: Spacing.xs,
         paddingHorizontal: Spacing.lg,
         paddingBottom: Spacing.md,
     },
@@ -398,129 +333,5 @@ const styles = StyleSheet.create({
     },
     bottomSpacer: {
         height: 60,
-    },
-
-    // ─── Modal ────────────────────────────────────
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: Spacing.lg,
-    },
-    modalContent: {
-        width: '100%',
-        backgroundColor: Colors.cardBgSolid,
-        borderRadius: Radius.xl,
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
-        padding: Spacing.xl,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: Spacing.lg,
-    },
-    modalEmoji: {
-        fontSize: Typography.xxl.fontSize,
-        marginRight: Spacing.sm,
-    },
-    modalTitle: {
-        ...Typography.heading,
-        fontSize: Typography.xl.fontSize,
-        flex: 1,
-    },
-    modalClose: {
-        padding: 4,
-    },
-    modalCloseText: {
-        fontSize: Typography.xl.fontSize,
-        color: Colors.textMuted,
-    },
-    modalSubtitle: {
-        ...Typography.body,
-        fontSize: Typography.md.fontSize,
-        color: Colors.textSecondary,
-        marginBottom: Spacing.lg,
-        lineHeight: 20,
-    },
-    pairedBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(52, 199, 89, 0.12)',
-        borderRadius: Radius.md,
-        padding: Spacing.md,
-        marginBottom: Spacing.lg,
-        gap: Spacing.sm,
-    },
-    pairedIcon: {
-        fontSize: Typography.lg.fontSize,
-    },
-    pairedText: {
-        ...Typography.bodySemiBold,
-        fontSize: Typography.md.fontSize,
-        color: Colors.success,
-    },
-    codeLoading: {
-        alignItems: 'center',
-        paddingVertical: Spacing.xl,
-    },
-    codeContainer: {
-        alignItems: 'center',
-        backgroundColor: 'rgba(108, 61, 184, 0.08)',
-        borderRadius: Radius.lg,
-        borderWidth: 1,
-        borderColor: 'rgba(108, 61, 184, 0.2)',
-        paddingVertical: Spacing.lg,
-        paddingHorizontal: Spacing.xl,
-        marginBottom: Spacing.lg,
-    },
-    codeLabel: {
-        ...Typography.caption,
-        fontSize: Typography.xs.fontSize,
-        color: Colors.textMuted,
-        textTransform: 'uppercase',
-        letterSpacing: 1.5,
-        marginBottom: Spacing.sm,
-    },
-    codeText: {
-        ...Typography.heading,
-        fontSize: Typography.xxl.fontSize,
-        color: Colors.lavender,
-        letterSpacing: 3,
-    },
-    modalActions: {
-        flexDirection: 'row',
-        gap: Spacing.md,
-    },
-    actionButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: Radius.lg,
-        gap: Spacing.sm,
-    },
-    copyButton: {
-        backgroundColor: 'rgba(108, 61, 184, 0.15)',
-        borderWidth: 1,
-        borderColor: 'rgba(108, 61, 184, 0.3)',
-    },
-    shareButton: {
-        backgroundColor: 'rgba(199, 125, 184, 0.15)',
-        borderWidth: 1,
-        borderColor: 'rgba(199, 125, 184, 0.3)',
-    },
-    actionIcon: {
-        fontSize: Typography.lg.fontSize,
-    },
-    actionText: {
-        ...Typography.bodySemiBold,
-        fontSize: Typography.md.fontSize,
-        color: Colors.textPrimary,
-    },
-    copiedText: {
-        color: Colors.success,
     },
 });

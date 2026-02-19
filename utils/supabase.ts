@@ -379,3 +379,9 @@ export async function joinPartner(inviteCode: string) {
 
     return { couple, partnerName: partner.name };
 }
+
+/** Delete current user account */
+export async function deleteUserAccount() {
+    const { error } = await supabase.rpc('delete_user_account');
+    if (error) throw error;
+}

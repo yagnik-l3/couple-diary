@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
+    ActivityIndicator,
     Modal,
     Platform,
     Pressable,
@@ -11,7 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import Animated from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 interface ActionSheetProps {
     visible: boolean;
@@ -23,6 +24,7 @@ interface ActionSheetProps {
     onConfirm: () => void;
     isDestructive?: boolean;
     cancelLabel?: string;
+    loading?: boolean;
 }
 
 export default function ActionSheet({
@@ -35,13 +37,14 @@ export default function ActionSheet({
     onConfirm,
     isDestructive = false,
     cancelLabel = 'Cancel',
+    loading = false,
 }: ActionSheetProps) {
     if (!visible) return null;
 
     const renderContent = () => (
         <Animated.View
-            // entering={FadeIn.duration(200)}
-            // exiting={FadeOut.duration(200)}
+            entering={FadeIn.duration(200)}
+            exiting={FadeOut.duration(200)}
             style={styles.sheetContainer}
         >
             {/* Glass Background */}
@@ -62,10 +65,11 @@ export default function ActionSheet({
                         <TouchableOpacity
                             onPress={() => {
                                 onConfirm();
-                                onClose();
+                                // We don't close immediately if loading - settings will handle it
                             }}
                             activeOpacity={0.8}
-                            style={styles.confirmButtonWrapper}
+                            style={[styles.confirmButtonWrapper, loading && styles.disabledButton]}
+                            disabled={loading}
                         >
                             <LinearGradient
                                 colors={isDestructive ? Gradients.danger : Gradients.button}
@@ -73,7 +77,11 @@ export default function ActionSheet({
                                 end={{ x: 1, y: 0 }}
                                 style={styles.confirmButton}
                             >
-                                <Text style={styles.confirmText}>{confirmLabel}</Text>
+                                {loading ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.confirmText}>{confirmLabel}</Text>
+                                )}
                             </LinearGradient>
                         </TouchableOpacity>
 
@@ -111,15 +119,15 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-end',
         zIndex: 1000,
+        borderWidth: 1,
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        // backgroundColor: 'rgba(0,0,0,0.6)',
     },
     sheetContainer: {
         width: '100%',
         paddingHorizontal: Spacing.md,
-        paddingBottom: Spacing.xl + 20, // ample space from bottom
+        paddingBottom: Spacing.xl, // ample space from bottom
     },
     glassContainer: {
         borderRadius: Radius.xl,
@@ -197,5 +205,8 @@ const styles = StyleSheet.create({
         ...Typography.bodySemiBold,
         fontSize: Typography.md.fontSize,
         color: Colors.textSecondary,
+    },
+    disabledButton: {
+        opacity: 0.6,
     },
 });

@@ -2,12 +2,12 @@ import AvatarMerge from '@/components/AvatarMerge';
 import FloatingCard from '@/components/FloatingCard';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import PremiumDatePicker from '@/components/PremiumDatePicker';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
 import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboardingComplete, sendOtp, supabase, verifyOtp } from '@/utils/supabase';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -619,48 +619,30 @@ export default function OnboardingScreen() {
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
 
                         <Animated.View entering={FadeInUp.delay(200).duration(400).springify()} style={styles.birthdateContainer}>
-                            {Platform.OS === 'android' ? (
-                                <>
-                                    <TouchableOpacity
-                                        onPress={() => setShowBirthPicker(true)}
-                                        style={styles.birthdateButton}
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.birthdateIcon}>🎂</Text>
-                                        <Text style={styles.birthdateText}>
-                                            {birthDate
-                                                ? birthDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
-                                                : 'Tap to select your birthday date'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                    {showBirthPicker && (
-                                        <DateTimePicker
-                                            value={birthDate || new Date(2000, 0, 1)}
-                                            mode="date"
-                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                            accentColor={Colors.softPink}
-                                            onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                                if (Platform.OS === 'android') {
-                                                    setShowBirthPicker(false);
-                                                }
-                                                if (date) {
-                                                    setBirthDate(date);
-                                                }
-                                            }}
-                                        />
-                                    )}
-                                </>
-                            ) : (
-                                <DateTimePicker
-                                    value={birthDate || new Date(2000, 0, 1)}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                    accentColor={Colors.softPink}
-                                    onChange={(event: DateTimePickerEvent, date?: Date) => {
-                                        if (date) setBirthDate(date);
+                            <>
+                                <TouchableOpacity
+                                    onPress={() => setShowBirthPicker(true)}
+                                    style={styles.birthdateButton}
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.birthdateIcon}>🎂</Text>
+                                    <Text style={styles.birthdateText}>
+                                        {birthDate
+                                            ? birthDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                                            : 'Tap to select your birthday date'}
+                                    </Text>
+                                </TouchableOpacity>
+                                <PremiumDatePicker
+                                    visible={showBirthPicker}
+                                    onClose={() => setShowBirthPicker(false)}
+                                    initialDate={birthDate || new Date(2000, 0, 1)}
+                                    maxDate={new Date()}
+                                    title="Select Your Birthday"
+                                    onDateSelected={(date) => {
+                                        setBirthDate(date);
                                     }}
                                 />
-                            )}
+                            </>
                         </Animated.View>
                     </Animated.View>
                 );
@@ -790,7 +772,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: Spacing.xl,
+        paddingTop: Spacing.xs,
     },
 
     // ─── Top bar ──────────────────────────────────────
