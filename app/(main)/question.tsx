@@ -52,7 +52,15 @@ export default function QuestionScreen() {
         setSubmitting(true);
         try {
             await QuestionService.submitAnswer(question.daily_id, answer);
-            router.replace({ pathname: '/(main)/waiting', params: { daily_id: question.daily_id } } as any);
+
+            // Check if partner already answered to decide where to go
+            const { partnerAnswered } = await QuestionService.getAnswerStatus(question.daily_id);
+
+            if (partnerAnswered) {
+                router.replace({ pathname: '/(main)/reveal', params: { daily_id: question.daily_id } } as any);
+            } else {
+                router.replace({ pathname: '/(main)/waiting', params: { daily_id: question.daily_id } } as any);
+            }
         } catch (err: any) {
             alert(err.message || 'Failed to submit');
         } finally {

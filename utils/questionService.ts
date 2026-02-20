@@ -201,4 +201,41 @@ export const QuestionService = {
                 };
             });
     },
+
+    /**
+     * Get or assign daily question for a specific date
+     */
+    getDailyQuestionByDate: async (date: string): Promise<(Question & { daily_id: string }) | null> => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('couple_id')
+            .eq('id', user.id)
+            .single();
+
+        if (!profile?.couple_id) return null;
+
+        const { data, error } = await supabase.rpc('get_or_assign_daily_question', {
+            p_couple_id: profile.couple_id,
+            p_date: date
+        });
+
+        if (error) {
+            console.error('Error fetching/assigning daily question by date:', error);
+            throw error;
+        }
+
+        if (!data || data.length === 0) return null;
+
+        const result = data[0];
+        return {
+            id: result.id,
+            text: result.text,
+            category: result.category,
+            daily_id: result.daily_id,
+            created_at: result.created_at || new Date().toISOString()
+        };
+    },
 };

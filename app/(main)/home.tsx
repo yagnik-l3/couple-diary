@@ -2,6 +2,7 @@ import AvatarMerge from '@/components/AvatarMerge';
 import GalaxySphere from '@/components/GalaxySphere';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import SetupBanner from '@/components/SetupBanner';
 import StarBackground from '@/components/StarBackground';
 import StreakBadge from '@/components/StreakBadge';
 import UrgencyHUD from '@/components/UrgencyHUD';
@@ -9,7 +10,7 @@ import { getLevelForStreak } from '@/constants/levels';
 import { Colors, Radius, Shadows, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
-import { supabase } from '@/utils/supabase';
+import { sendNudge } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -36,7 +37,7 @@ const { width } = Dimensions.get('window');
 const MENU_ITEMS = [
     { id: 'journal', icon: '📓', label: 'Journal', route: '/(main)/journal' },
     // Timeline removed as it is now linked to the streak badge
-    { id: 'levels', icon: '🗺️', label: 'Levels', route: '/(main)/levels' },
+    // { id: 'levels', icon: '🗺️', label: 'Levels', route: '/(main)/levels' },
     { id: 'notifications', icon: '🔔', label: 'Notifications', route: '/(main)/notifications' },
     { id: 'settings', icon: '⚙️', label: 'Settings', route: '/(main)/settings' },
 ] as const;
@@ -56,12 +57,11 @@ function getUTCCountdown(): string {
 
 export default function HomeScreen() {
     const router = useRouter();
-    const { state } = useAppState();
+    const { state, update } = useAppState();
     const [menuOpen, setMenuOpen] = useState(false);
     const [ctaState, setCtaState] = useState<'answer' | 'waiting' | 'reveal' | 'done'>('answer');
     const [dailyId, setDailyId] = useState('');
     const [countdown, setCountdown] = useState(getUTCCountdown());
-    const [nudgeSent, setNudgeSent] = useState(false);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const currentLevel = getLevelForStreak(state.streakCount);
@@ -104,31 +104,15 @@ export default function HomeScreen() {
     }, []);
 
     const handleNudge = useCallback(async () => {
-        if (nudgeSent) return;
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        setNudgeSent(true);
-        // update({ lastNudgeTime: new Date().toISOString() }); // Optional: track via store
-        setTimeout(() => setNudgeSent(false), 30000); // 30s local cooldown
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('couple_id')
-                    .eq('id', user.id)
-                    .single();
-                if (profile?.couple_id) {
-                    await supabase.from('nudges').insert({
-                        sender_id: user.id,
-                        couple_id: profile.couple_id,
-                    });
-                }
-            }
+            await sendNudge();
+            update({ lastNudgeAt: new Date().toISOString() });
         } catch (err) {
-            console.warn('Nudge insert error:', err);
+            console.warn('Nudge error:', err);
         }
-    }, [nudgeSent]);
+    }, [update]);
 
     const handleMenuItemPress = useCallback((route: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -148,9 +132,11 @@ export default function HomeScreen() {
                             <Text style={styles.coupleNames} numberOfLines={1}>
                                 {state.userFirstName || 'You'} & {state.partnerName || 'Love'}
                             </Text>
-                            <Text style={styles.levelLabel}>
-                                {currentLevel.icon} {currentLevel.title}
-                            </Text>
+                            <Pressable onPress={() => router.push('/(main)/levels')}>
+                                <Text style={styles.levelLabel}>
+                                    {currentLevel.icon} {currentLevel.title}
+                                </Text>
+                            </Pressable>
                         </View>
                         {/* Streak Badge - Linked to Timeline */}
                         <TouchableOpacity onPress={() => router.push('/(main)/timeline')}>
@@ -172,12 +158,14 @@ export default function HomeScreen() {
                 )}
 
                 {/* Unified Footer Bar */}
+                <SetupBanner />
                 <UrgencyHUD
                     state={ctaState}
                     countdown={countdown}
                     partnerName={state.partnerName || 'Partner'}
                     onNudge={handleNudge}
-                    nudgeSent={nudgeSent}
+                    lastNudgeAt={state.lastNudgeAt}
+                    nudgeCooldownMinutes={state.nudgeCooldownMinutes}
                 />
                 <Animated.View entering={FadeInUp.delay(800).duration(800)} style={styles.floatingBar}>
                     <View style={[styles.unifiedFooter, menuOpen && styles.unifiedFooterActive]}>

@@ -6,7 +6,7 @@ import WeekCalendar from '@/components/WeekCalendar';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { s } from '@/utils/scale';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ScrollView,
@@ -51,8 +51,10 @@ function getWeekRange(date: Date): { start: string; end: string } {
 // ─── Screen ───────────────────────────────────────────
 export default function TimelineScreen() {
     const router = useRouter();
+    const { date: initialDate } = useLocalSearchParams<{ date: string }>();
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(() => {
+        if (initialDate) return initialDate;
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     });
@@ -80,7 +82,8 @@ export default function TimelineScreen() {
 
     // Load current week on mount
     useEffect(() => {
-        const { start, end } = getWeekRange(new Date());
+        const baseDate = initialDate ? new Date(initialDate) : new Date();
+        const { start, end } = getWeekRange(baseDate);
         fetchWeekData(start, end);
     }, []);
 
@@ -184,7 +187,7 @@ const styles = StyleSheet.create({
     flex: { flex: 1 },
     container: {
         flex: 1,
-        paddingTop: s(56),
+        paddingTop: Spacing.xs,
     },
     header: {
         flexDirection: 'row',

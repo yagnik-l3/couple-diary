@@ -125,12 +125,6 @@ export async function getProfile() {
         }
     }
 
-    // Fetch questions answered count
-    const { count: questionsAnswered } = await supabase
-        .from('answers')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
     // Merge for convenience — couple fields attached to profile result
     return {
         ...profile,
@@ -144,7 +138,12 @@ export async function getProfile() {
         lives: coupleData?.lives || 1,
         partner_name: partnerProfile?.first_name || partnerProfile?.name || 'Partner',
         partner_avatar_url: partnerProfile?.avatar_url || null,
-        questions_answered: questionsAnswered || 0,
+        questions_answered: profile.questions_answered || 0,
+        last_nudge_at: profile.last_nudge_at || null,
+        nudge_notifications_enabled: profile.nudge_notifications_enabled ?? true,
+        daily_reminders_enabled: profile.daily_reminders_enabled ?? true,
+        reminder_time: profile.reminder_time || '22:00',
+        userId: user.id,
     };
 }
 
@@ -260,9 +259,29 @@ export async function updateCoupleData(updates: Record<string, any>) {
 
     if (!profile?.couple_id) throw new Error('Not paired with a partner yet');
 
+    // Fetch the couple record to check for existing editor
+    const { data: couple, error: coupleError } = await supabase
+        .from('couples')
+        .select('editor_user_id')
+        .eq('id', profile.couple_id)
+        .single();
+
+    if (coupleError) throw coupleError;
+
+    // Authorization check
+    if (couple.editor_user_id && couple.editor_user_id !== user.id) {
+        throw new Error('Only the authorized partner can edit relationship details');
+    }
+
+    // Prepare updates — if no editor set, set current user as editor
+    const finalUpdates = { ...updates };
+    if (!couple.editor_user_id) {
+        finalUpdates.editor_user_id = user.id;
+    }
+
     const { data, error } = await supabase
         .from('couples')
-        .update(updates)
+        .update(finalUpdates)
         .eq('id', profile.couple_id)
         .select()
         .single();
@@ -383,5 +402,55 @@ export async function joinPartner(inviteCode: string) {
 /** Delete current user account */
 export async function deleteUserAccount() {
     const { error } = await supabase.rpc('delete_user_account');
+    if (error) throw error;
+}
+
+/** Send a nudge to the partner by updating last_nudge_at */
+export async function sendNudge() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ last_nudge_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+    if (error) throw error;
+}
+
+/** Update nudge notification preference */
+export async function updateNudgeSettings(enabled: boolean) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ nudge_notifications_enabled: enabled })
+        .eq('id', user.id);
+
+    if (error) throw error;
+}
+
+export async function updateReminderSettings(time: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ reminder_time: time })
+        .eq('id', user.id);
+
+    if (error) throw error;
+}
+
+export async function updateDailyRemindersToggle(enabled: boolean) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+        .from('profiles')
+        .update({ daily_reminders_enabled: enabled })
+        .eq('id', user.id);
+
     if (error) throw error;
 }

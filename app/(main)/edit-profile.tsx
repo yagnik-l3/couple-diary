@@ -488,7 +488,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         ...Typography.h3,
         color: Colors.textPrimary,
-        marginBottom: Spacing.lg,
     },
     sectionHeader: {
         flexDirection: 'row',

@@ -14,12 +14,15 @@ export default function ConnectedScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{
         name: string;
+        partnerName: string;
     }>();
+
 
     const handleStartJourney = () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace('/couple-setup');
     };
+
 
     return (
         <GradientBackground>
@@ -41,13 +44,8 @@ export default function ConnectedScreen() {
                             entering={FadeInUp.delay(600).duration(500)}
                             style={styles.subtitle}
                         >
-                            {params.name || 'You'} & Partner{"\n"}Your universe for two is ready ✨
+                            {params.name || 'You'} & {params.partnerName || 'Partner'}{"\n"}Your universe for two is ready ✨
                         </Animated.Text>
-                        {/* <Animated.View entering={FadeIn.delay(900).duration(400)} style={styles.badge}>
-                            <Text style={styles.badgeText}>
-                                🔗 Paired with code {(params.inviteCode || '').substring(0, 4)}…
-                            </Text>
-                        </Animated.View> */}
                     </Animated.View>
                 </View>
 

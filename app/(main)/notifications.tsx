@@ -2,6 +2,7 @@ import GradientBackground from '@/components/GradientBackground';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { QuestionService } from '@/utils/questionService';
 import { s } from '@/utils/scale';
 import { supabase } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
@@ -67,7 +68,9 @@ export default function NotificationScreen() {
                 .limit(50);
 
             if (error) throw error;
-            setNotifications(data || []);
+            // Filter out 'nudge' notifications per user request
+            const filtered = (data || []).filter(n => n.type !== 'nudge');
+            setNotifications(filtered);
         } catch (err) {
             console.warn('Failed to fetch notifications:', err);
         } finally {
@@ -99,15 +102,43 @@ export default function NotificationScreen() {
         }
     }, [notifications]);
 
-    const handleNotifPress = (notif: NotificationItem) => {
+    const handleNotifPress = async (notif: NotificationItem) => {
         switch (notif.type) {
             case 'partner_answered':
-                if (notif.data?.daily_id) {
-                    router.push({ pathname: '/(main)/reveal', params: { daily_id: notif.data.daily_id } } as any);
+            case 'nudge':
+            case 'new_question': {
+                let dailyId = notif.data?.daily_id;
+                const date = notif.created_at.split('T')[0]; // YYYY-MM-DD
+
+                try {
+                    // 1. Ensure we have a dailyId
+                    if (!dailyId) {
+                        const dq = await QuestionService.getDailyQuestionByDate(date);
+                        dailyId = dq?.daily_id;
+                    }
+
+                    if (!dailyId) {
+                        router.push('/(main)/question');
+                        return;
+                    }
+
+                    // 2. Check answer status
+                    const { hasAnswered, partnerAnswered } = await QuestionService.getAnswerStatus(dailyId);
+
+                    // 3. Navigate based on status
+                    if (hasAnswered && partnerAnswered) {
+                        router.push({ pathname: '/(main)/timeline', params: { date } } as any);
+                    } else if (hasAnswered) {
+                        router.push({ pathname: '/(main)/waiting', params: { daily_id: dailyId } } as any);
+                    } else {
+                        router.push('/(main)/question');
+                    }
+                } catch (err) {
+                    console.warn('Notification press handling error:', err);
+                    router.push('/(main)/question');
                 }
                 break;
-            case 'nudge':
-            case 'new_question':
+            }
             case 'streak_warning':
                 router.push('/(main)/question');
                 break;

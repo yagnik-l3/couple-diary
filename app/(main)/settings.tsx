@@ -54,9 +54,7 @@ function SettingRow({ icon, label, value, onToggle, onPress, showArrow, danger }
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { state, reset } = useAppState();
-    const [notifications, setNotifications] = useState(true);
-    const [dailyReminder, setDailyReminder] = useState(true);
+    const { state, update, reset } = useAppState();
     const [soundEffects, setSoundEffects] = useState(true);
     const [haptics, setHaptics] = useState(true);
 
@@ -69,9 +67,16 @@ export default function SettingsScreen() {
     // Action Sheet state
     const [actionSheet, setActionSheet] = useState<{
         visible: boolean;
-        type: 'logout' | 'delete' | null;
+        type: 'logout' | 'delete' | 'info' | null;
+        title?: string;
+        message?: string;
+        icon?: string;
+        confirmLabel?: string;
+        onConfirm?: () => void;
+        isDestructive?: boolean;
     }>({ visible: false, type: null });
     const [actionLoading, setActionLoading] = useState(false);
+    const [exportLoading, setExportLoading] = useState<'timeline' | 'journal' | null>(null);
 
     const isPaired = state.hasPartner;
 
@@ -87,14 +92,102 @@ export default function SettingsScreen() {
                 reset();
                 router.replace('/onboarding');
             }
-            setActionSheet({ visible: false, type: null });
-        } catch (error) {
-            console.error('Action failed:', error);
+        } catch (err) {
+            console.error('Action failed:', err);
             // Maybe add an alert here
         } finally {
             setActionLoading(false);
+            setActionSheet(prev => ({ ...prev, visible: false }));
         }
     }, [actionSheet.type, reset, router]);
+
+    const handleExportTimeline = async () => {
+        if (!state.coupleId || !state.userId) return;
+        setExportLoading('timeline');
+        try {
+            const { ExportService } = await import('@/utils/exportService');
+            const result = await ExportService.exportTimeline(state.coupleId, state.userId);
+
+            if (result.success) {
+                setActionSheet({
+                    visible: true,
+                    type: 'info',
+                    title: 'Success',
+                    message: 'Memories downloaded successfully! ✨',
+                    icon: '📦',
+                    confirmLabel: 'Great!',
+                    onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+                });
+            } else {
+                setActionSheet({
+                    visible: true,
+                    type: 'info',
+                    title: 'Empty',
+                    message: 'No memories found to download just yet. 🌟',
+                    icon: '✨',
+                    confirmLabel: 'OK',
+                    onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+                });
+            }
+        } catch (err: any) {
+            console.error('Export timeline failed:', err);
+            setActionSheet({
+                visible: true,
+                type: 'info',
+                title: 'Oops!',
+                message: err.message || 'Failed to download memories.',
+                icon: '⚠️',
+                confirmLabel: 'Understood',
+                onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+            });
+        } finally {
+            setExportLoading(null);
+        }
+    };
+
+    const handleExportJournal = async () => {
+        if (!state.userId) return;
+        setExportLoading('journal');
+        try {
+            const { ExportService } = await import('@/utils/exportService');
+            const result = await ExportService.exportJournal(state.userId);
+
+            if (result.success) {
+                setActionSheet({
+                    visible: true,
+                    type: 'info',
+                    title: 'Success',
+                    message: 'Journal downloaded successfully! 📓',
+                    icon: '📓',
+                    confirmLabel: 'Great!',
+                    onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+                });
+            } else {
+                setActionSheet({
+                    visible: true,
+                    type: 'info',
+                    title: 'Empty',
+                    message: "You haven't written any journal entries yet. 🖋️",
+                    icon: '📓',
+                    confirmLabel: 'OK',
+                    onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+                });
+            }
+        } catch (err: any) {
+            console.error('Export journal failed:', err);
+            setActionSheet({
+                visible: true,
+                type: 'info',
+                title: 'Oops!',
+                message: err.message || 'Failed to download journal.',
+                icon: '⚠️',
+                confirmLabel: 'Understood',
+                onConfirm: () => setActionSheet(prev => ({ ...prev, visible: false }))
+            });
+        } finally {
+            setExportLoading(null);
+        }
+    };
 
     const openInviteModal = useCallback(async () => {
         setInviteModalVisible(true);
@@ -160,15 +253,31 @@ export default function SettingsScreen() {
                         <SettingRow
                             icon="🔔"
                             label="Push Notifications"
-                            value={notifications}
-                            onToggle={setNotifications}
+                            value={state.nudgeNotificationsEnabled}
+                            onToggle={async (val) => {
+                                try {
+                                    const { updateNudgeSettings } = await import('@/utils/supabase');
+                                    await updateNudgeSettings(val);
+                                    update({ nudgeNotificationsEnabled: val });
+                                } catch (err) {
+                                    console.error('Failed to update nudge settings:', err);
+                                }
+                            }}
                         />
                         <View style={styles.rowDivider} />
                         <SettingRow
                             icon="⏰"
                             label="Daily Reminder"
-                            value={dailyReminder}
-                            onToggle={setDailyReminder}
+                            value={state.dailyRemindersEnabled}
+                            onToggle={async (val) => {
+                                try {
+                                    const { updateDailyRemindersToggle } = await import('@/utils/supabase');
+                                    await updateDailyRemindersToggle(val);
+                                    update({ dailyRemindersEnabled: val });
+                                } catch (err) {
+                                    console.error('Failed to update reminder settings:', err);
+                                }
+                            }}
                         />
                         <View style={styles.rowDivider} />
                         {/* <SettingRow
@@ -201,9 +310,19 @@ export default function SettingsScreen() {
                 <Animated.View entering={FadeInUp.delay(400).duration(500)}>
                     <Text style={styles.sectionTitle}>Data</Text>
                     <FloatingCard style={styles.sectionCard}>
-                        <SettingRow icon="📦" label="Export Memories" onPress={() => { }} showArrow />
+                        <SettingRow
+                            icon="📦"
+                            label={exportLoading === 'timeline' ? 'Downloading...' : 'Download Memories'}
+                            onPress={handleExportTimeline}
+                            showArrow
+                        />
                         <View style={styles.rowDivider} />
-                        <SettingRow icon="📦" label="Export Journal" onPress={() => { }} showArrow />
+                        <SettingRow
+                            icon="📓"
+                            label={exportLoading === 'journal' ? 'Downloading...' : 'Download Journal'}
+                            onPress={handleExportJournal}
+                            showArrow
+                        />
                     </FloatingCard>
                 </Animated.View>
 
@@ -238,16 +357,18 @@ export default function SettingsScreen() {
             <ActionSheet
                 visible={actionSheet.visible}
                 onClose={() => setActionSheet(prev => ({ ...prev, visible: false }))}
-                title={actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account'}
+                title={actionSheet.title || (actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account')}
                 message={
-                    actionSheet.type === 'logout'
-                        ? 'Are you sure you want to log out?'
-                        : 'Are you sure you want to delete your account? This action cannot be undone.'
+                    actionSheet.message || (
+                        actionSheet.type === 'logout'
+                            ? 'Are you sure you want to log out?'
+                            : 'Are you sure you want to delete your account? This action cannot be undone.'
+                    )
                 }
-                icon={actionSheet.type === 'logout' ? '🚪' : '🗑️'}
-                confirmLabel={actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account'}
-                onConfirm={handleConfirmAction}
-                isDestructive
+                icon={actionSheet.icon || (actionSheet.type === 'logout' ? '🚪' : '🗑️')}
+                confirmLabel={actionSheet.confirmLabel || (actionSheet.type === 'logout' ? 'Log Out' : 'Delete Account')}
+                onConfirm={actionSheet.onConfirm || handleConfirmAction}
+                isDestructive={actionSheet.isDestructive ?? (actionSheet.type !== 'info')}
                 loading={actionLoading}
             />
         </GradientBackground>

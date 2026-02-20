@@ -34,9 +34,14 @@ export default function MainLayout() {
                     questionsAnswered: profile.questions_answered || 0,
                     avatarUrl: profile.avatar_url || '',
                     partnerAvatarUrl: profile.partner_avatar_url || '',
-                    reminderTime: profile.reminder_time || '',
                     coupleVibe: profile.couple_vibe || '',
                     coupleEditorId: profile.editor_user_id || '',
+                    userId: profile.userId,
+                    lastNudgeAt: profile.last_nudge_at || '',
+                    nudgeNotificationsEnabled: profile.nudge_notifications_enabled,
+                    dailyRemindersEnabled: profile.daily_reminders_enabled,
+                    reminderTime: profile.reminder_time,
+                    coupleId: profile.couple_id || '',
                 });
             } catch {
                 // If profile fetch fails, let them through (auth guard handles the rest)

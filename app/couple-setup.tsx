@@ -26,7 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 // ─── Step definitions ─────────────────────────────────
-type SetupStepType = 'relationship' | 'topics' | 'vibe' | 'reminder';
+type SetupStepType = 'relationship' | 'topics' | 'vibe';
 
 interface SetupStep {
     id: string;
@@ -40,7 +40,6 @@ const STEPS: SetupStep[] = [
     { id: 'relationship', type: 'relationship', icon: '💞', title: 'When did your\nlove story begin?', subtitle: 'We\'ll celebrate your milestones together' },
     { id: 'topics', type: 'topics', icon: '💬', title: 'Choose what you\nlove talking about', subtitle: 'Pick 3 or more — you can change this anytime' },
     { id: 'vibe', type: 'vibe', icon: '💫', title: 'Your Couple\nVibe', subtitle: 'How would you describe your relationship?' },
-    { id: 'reminder', type: 'reminder', icon: '🔔', title: 'When should we\nremind you?', subtitle: 'A daily nudge so you never miss a question' },
 ];
 
 const TOPIC_OPTIONS = [
@@ -64,11 +63,6 @@ const VIBE_OPTIONS = [
     { id: 'calm', label: 'Calm & Peaceful', icon: '🌿' },
 ];
 
-const REMINDER_OPTIONS = [
-    { id: '09:00', label: 'Morning', time: '9 AM', icon: '☀️' },
-    { id: '18:00', label: 'Evening', time: '6 PM', icon: '🌅' },
-    { id: '22:00', label: 'Night', time: '10 PM', icon: '🌙' },
-];
 
 // ─── Animated Chip Component ──────────────────────────
 function AnimatedChip({
@@ -106,28 +100,10 @@ function TopicPill({
     );
 }
 
-// ─── Reminder Card Component ──────────────────────────
-function ReminderCard({
-    label, time, icon, selected, onPress, index,
-}: { label: string; time: string; icon: string; selected: boolean; onPress: () => void; index: number }) {
-    return (
-        <Animated.View entering={FadeInUp.delay(index * 100 + 100).duration(400).springify()} style={{ flex: 1 }}>
-            <TouchableOpacity
-                style={[styles.reminderCard, selected && styles.reminderCardSelected]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
-                activeOpacity={0.85}
-            >
-                <Text style={styles.reminderIcon}>{icon}</Text>
-                <Text style={[styles.reminderTime, selected && styles.reminderTimeSelected]}>{time}</Text>
-                <Text style={[styles.reminderLabel, selected && styles.reminderLabelSelected]}>{label}</Text>
-            </TouchableOpacity>
-        </Animated.View>
-    );
-}
 
 export default function CoupleSetupScreen() {
     const router = useRouter();
-    const { update } = useAppState();
+    const { state, update } = useAppState();
     const [activeIndex, setActiveIndex] = useState(0);
 
     // Form state
@@ -135,9 +111,21 @@ export default function CoupleSetupScreen() {
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [coupleVibe, setCoupleVibe] = useState('');
-    const [reminderTime, setReminderTime] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Load existing data if available
+    useEffect(() => {
+        if (state.relationshipDate) {
+            setRelationshipDate(new Date(state.relationshipDate));
+        }
+        if (state.topicPreferences.length > 0) {
+            setSelectedTopics(state.topicPreferences);
+        }
+        if (state.coupleVibe) {
+            setCoupleVibe(state.coupleVibe);
+        }
+    }, [state]);
 
     const totalSteps = STEPS.length;
     const currentStep = STEPS[activeIndex];
@@ -162,10 +150,9 @@ export default function CoupleSetupScreen() {
             case 'relationship': return relationshipDate !== null;
             case 'topics': return selectedTopics.length >= 3;
             case 'vibe': return coupleVibe !== '';
-            case 'reminder': return reminderTime !== '';
             default: return true;
         }
-    }, [currentStep.type, relationshipDate, selectedTopics, coupleVibe, reminderTime, loading]);
+    }, [currentStep.type, relationshipDate, selectedTopics, coupleVibe, loading]);
 
     // ─── Finalize Setup ───────────────────────────────
     const finishSetup = async () => {
@@ -176,9 +163,7 @@ export default function CoupleSetupScreen() {
                 : null;
 
             // 1. Update personal reminder time (profiles table)
-            await updateProfile({
-                reminder_time: reminderTime,
-            });
+            await updateProfile({});
 
             // 2. Update shared couple preferences (couples table)
             await updateCoupleData({
@@ -194,7 +179,6 @@ export default function CoupleSetupScreen() {
             update({
                 topicPreferences: selectedTopics,
                 coupleVibe: coupleVibe,
-                reminderTime: reminderTime,
                 relationshipDate: relDateStr || '',
                 hasCompletedOnboarding: true,
             });
@@ -308,27 +292,6 @@ export default function CoupleSetupScreen() {
                                     icon={opt.icon}
                                     selected={coupleVibe === opt.id}
                                     onPress={() => setCoupleVibe(opt.id)}
-                                    index={i}
-                                />
-                            ))}
-                        </View>
-                    </Animated.View>
-                );
-
-            case 'reminder':
-                return (
-                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
-                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
-                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
-                        <View style={styles.reminderRow}>
-                            {REMINDER_OPTIONS.map((opt, i) => (
-                                <ReminderCard
-                                    key={opt.id}
-                                    label={opt.label}
-                                    time={opt.time}
-                                    icon={opt.icon}
-                                    selected={reminderTime === opt.id}
-                                    onPress={() => setReminderTime(opt.id)}
                                     index={i}
                                 />
                             ))}
@@ -612,43 +575,6 @@ const styles = StyleSheet.create({
         color: Colors.textPrimary,
     },
 
-    // ─── Reminder ─────────────────────────────────────
-    reminderRow: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: Spacing.sm,
-        width: '100%',
-    },
-    reminderCard: {
-        alignItems: 'center',
-        paddingVertical: Spacing.lg,
-        paddingHorizontal: Spacing.sm,
-        borderRadius: Radius.md,
-        backgroundColor: Colors.white08,
-        borderWidth: 1,
-        borderColor: 'transparent',
-    },
-    reminderCardSelected: {
-        backgroundColor: 'rgba(199, 125, 184, 0.2)',
-        borderColor: Colors.softPink,
-    },
-    reminderIcon: {
-        fontSize: s(28),
-        marginBottom: Spacing.sm,
-    },
-    reminderTime: {
-        ...Typography.bodySemiBold,
-        fontSize: s(16),
-        color: Colors.textSecondary,
-    },
-    reminderTimeSelected: {
-        color: Colors.textPrimary,
-    },
-    reminderLabel: {
-        ...Typography.caption,
-        fontSize: s(12),
-        color: Colors.textMuted,
-    },
     reminderLabelSelected: {
         color: Colors.textSecondary,
     },

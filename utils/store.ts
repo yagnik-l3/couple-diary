@@ -6,6 +6,7 @@ export interface AppState {
     // User
     userFirstName: string;
     userLastName: string;
+    userId: string;
     userGender: 'male' | 'female' | 'non-binary' | 'prefer-not' | '';
     userEmail: string;
     relationshipDate: string; // ISO string
@@ -25,7 +26,9 @@ export interface AppState {
     lastFreeLifeMonth: string; // "YYYY-MM" — tracks last monthly free life
 
     // Nudge
-    lastNudgeTime: string; // ISO string
+    lastNudgeAt: string; // ISO string
+    nudgeNotificationsEnabled: boolean;
+    dailyRemindersEnabled: boolean;
     nudgeCooldownMinutes: number;
 
     // Preferences
@@ -41,11 +44,13 @@ export interface AppState {
     // Today
     hasAnsweredToday: boolean;
     partnerAnsweredToday: boolean;
+    coupleId: string;
 }
 
 const DEFAULT_STATE: AppState = {
     userFirstName: '',
     userLastName: '',
+    userId: '',
     userGender: '',
     userEmail: '',
     relationshipDate: '',
@@ -57,7 +62,9 @@ const DEFAULT_STATE: AppState = {
     questionsAnswered: 0,
     lives: 1,
     lastFreeLifeMonth: '',
-    lastNudgeTime: '',
+    lastNudgeAt: '',
+    nudgeNotificationsEnabled: true,
+    dailyRemindersEnabled: true,
     nudgeCooldownMinutes: 30,
     topicPreferences: [],
     coupleVibe: '',
@@ -69,6 +76,7 @@ const DEFAULT_STATE: AppState = {
     hasCompletedOnboarding: false,
     hasAnsweredToday: false,
     partnerAnsweredToday: false,
+    coupleId: '',
 };
 
 const STORAGE_KEY = '@couple_diary_state';

@@ -39,7 +39,7 @@ import Animated, {
 
 
 // ─── Step definitions ─────────────────────────────────
-type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'birthdate' | 'invite';
+type StepType = 'intro' | 'email' | 'otp' | 'name' | 'gender' | 'birthdate' | 'reminder' | 'invite';
 
 interface Step {
     id: string;
@@ -58,7 +58,14 @@ const STEPS: Step[] = [
     { id: 'name', type: 'name', title: 'What does your\npartner call you?', subtitle: 'This name will appear in your universe' },
     { id: 'gender', type: 'gender', title: 'Help us personalize\nyour universe', subtitle: 'This helps personalize your questions' },
     { id: 'birthdate', type: 'birthdate', icon: '🎂', title: 'When\'s your\nbirthday?', subtitle: 'We\'ll make it extra special' },
+    { id: 'reminder', type: 'reminder', icon: '🔔', title: 'When should we\nremind you?', subtitle: 'A daily nudge so you never miss a question' },
     { id: 'invite', type: 'invite', title: 'Invite Your\nOther Half', subtitle: 'Share your code or join theirs' },
+];
+
+const REMINDER_OPTIONS = [
+    { id: '09:00', label: 'Morning', time: '9 AM', icon: '☀️' },
+    { id: '18:00', label: 'Evening', time: '6 PM', icon: '🌅' },
+    { id: '22:00', label: 'Night', time: '10 PM', icon: '🌙' },
 ];
 
 const GENDER_OPTIONS = [
@@ -138,6 +145,7 @@ export default function OnboardingScreen() {
     const [gender, setGender] = useState('');
     const [birthDate, setBirthDate] = useState<Date | null>(null);
     const [showBirthPicker, setShowBirthPicker] = useState(false);
+    const [reminderTime, setReminderTime] = useState('22:00');
     const [inviteCode, setInviteCode] = useState('');
     const [codeError, setCodeError] = useState('');
     const [codeCopied, setCodeCopied] = useState(false);
@@ -296,7 +304,7 @@ export default function OnboardingScreen() {
 
                         router.replace({
                             pathname: '/connected',
-                            params: { name: firstName || 'You' },
+                            params: { name: firstName || 'You', partnerName: profile.partner_name || 'Partner' },
                         });
                     }
                 } catch (err) {
@@ -366,7 +374,7 @@ export default function OnboardingScreen() {
 
             router.replace({
                 pathname: '/connected',
-                params: { name: result.partnerName },
+                params: { name: firstName, partnerName: result.partnerName },
             });
         } catch (err: any) {
             setCodeError(err.message || 'Failed to connect');
@@ -393,6 +401,7 @@ export default function OnboardingScreen() {
                 gender,
                 email: email || '',
                 birth_date: birthDateStr,
+                reminder_time: reminderTime,
                 timezone: tz,
             });
             setMyInviteCode(profile.invite_code);
@@ -403,6 +412,7 @@ export default function OnboardingScreen() {
                 userLastName: lastName.trim(),
                 userGender: gender as any,
                 userBirthDate: birthDateStr || '',
+                reminderTime: reminderTime,
                 timezone: tz,
             });
             setActiveIndex(activeIndex + 1); // Go to Invite step
@@ -439,9 +449,15 @@ export default function OnboardingScreen() {
             return; // Wait for auto-submit or manual verify
         }
 
-        // Birthdate -> Create Profile -> Invite
-        if (currentStep.type === 'birthdate') {
+        // Reminder -> Create Profile -> Invite
+        if (currentStep.type === 'reminder') {
             createMyProfile();
+            return;
+        }
+
+        // Birthdate -> Reminder
+        if (currentStep.type === 'birthdate') {
+            setActiveIndex(activeIndex + 1);
             return;
         }
 
@@ -647,6 +663,36 @@ export default function OnboardingScreen() {
                     </Animated.View>
                 );
 
+            case 'reminder':
+                return (
+                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                        <Text style={styles.fieldTitle}>{currentStep.title}</Text>
+                        <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
+                        <View style={styles.reminderRow}>
+                            {REMINDER_OPTIONS.map((opt, i) => (
+                                <Animated.View key={opt.id} entering={FadeInUp.delay(i * 100 + 200).duration(500).springify()}>
+                                    <TouchableOpacity
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                            setReminderTime(opt.id);
+                                        }}
+                                        style={[styles.reminderCard, reminderTime === opt.id && styles.reminderCardSelected]}
+                                    >
+                                        <Text style={styles.reminderIcon}>{opt.icon}</Text>
+                                        <Text style={[styles.reminderTime, reminderTime === opt.id && styles.reminderTimeSelected]}>
+                                            {opt.time}
+                                        </Text>
+                                        <Text style={[styles.reminderLabel, reminderTime === opt.id && styles.reminderLabelSelected]}>
+                                            {opt.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </Animated.View>
+                            ))}
+                        </View>
+                    </Animated.View>
+                );
+
             case 'invite':
                 return (
                     <Animated.View key="invite" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={{ ...styles.fieldContent, alignItems: 'center' }}>
@@ -697,8 +743,6 @@ export default function OnboardingScreen() {
                         </TouchableOpacity>
                     </Animated.View>
                 );
-
-
 
             default:
                 return null;
@@ -1083,27 +1127,24 @@ const styles = StyleSheet.create({
         marginHorizontal: Spacing.md,
     },
     shareCodeBox: {
-        backgroundColor: Colors.white08,
-        borderRadius: Radius.md,
-        padding: Spacing.md,
-        alignItems: 'center',
-        marginBottom: Spacing.sm,
-        borderWidth: 1,
-        borderColor: Colors.glassBorder,
-        borderStyle: 'dashed',
         width: '100%',
+        backgroundColor: Colors.white08,
+        padding: Spacing.xl,
+        borderRadius: Radius.lg,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: Colors.white12,
+        marginTop: Spacing.md,
     },
     shareCode: {
-        ...Typography.bodySemiBold,
-        fontSize: s(18),
-        color: Colors.goldSparkle,
-        letterSpacing: 3,
+        ...Typography.heading,
+        color: Colors.softPink,
+        letterSpacing: 4,
     },
     copyHint: {
         ...Typography.caption,
-        fontSize: s(11),
         color: Colors.textMuted,
-        marginTop: 4,
+        marginTop: Spacing.sm,
     },
     codeErrorText: {
         ...Typography.bodyMedium,

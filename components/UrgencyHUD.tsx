@@ -25,7 +25,8 @@ interface UrgencyHUDProps {
     countdown: string;
     partnerName?: string;
     onNudge: () => void;
-    nudgeSent: boolean;
+    lastNudgeAt?: string;
+    nudgeCooldownMinutes?: number;
     style?: ViewStyle;
 }
 
@@ -34,10 +35,33 @@ export default function UrgencyHUD({
     countdown,
     partnerName = 'Partner',
     onNudge,
-    nudgeSent,
+    lastNudgeAt,
+    nudgeCooldownMinutes = 30,
     style,
 }: UrgencyHUDProps) {
     const pulse = useSharedValue(1);
+    const [cooldownRemaining, setCooldownRemaining] = React.useState(0);
+
+    // Calculate cooldown
+    useEffect(() => {
+        const getRemaining = () => {
+            if (!lastNudgeAt) return 0;
+            const elapsed = Date.now() - new Date(lastNudgeAt).getTime();
+            const cooldown = nudgeCooldownMinutes * 60 * 1000;
+            return Math.max(0, cooldown - elapsed);
+        };
+
+        const tick = () => {
+            setCooldownRemaining(getRemaining());
+        };
+
+        tick();
+        const interval = setInterval(tick, 1000); // 1s tick for button state
+        return () => clearInterval(interval);
+    }, [lastNudgeAt, nudgeCooldownMinutes]);
+
+    const isNudgeOnCooldown = cooldownRemaining > 0;
+    const nudgeCooldownLabel = Math.ceil(cooldownRemaining / 60000);
 
     useEffect(() => {
         if (state === 'answer') {
@@ -132,12 +156,12 @@ export default function UrgencyHUD({
                             {config.action === 'nudge' && (
                                 <TouchableOpacity
                                     onPress={onNudge}
-                                    disabled={nudgeSent}
+                                    disabled={isNudgeOnCooldown}
                                     activeOpacity={0.7}
-                                    style={[styles.nudgeButton, nudgeSent && styles.nudgeButtonSent]}
+                                    style={[styles.nudgeButton, isNudgeOnCooldown && styles.nudgeButtonSent]}
                                 >
-                                    <Text style={[styles.nudgeText, nudgeSent && styles.nudgeTextSent]}>
-                                        {nudgeSent ? 'Sent! 💌' : 'Nudge'}
+                                    <Text style={[styles.nudgeText, isNudgeOnCooldown && styles.nudgeTextSent]}>
+                                        {isNudgeOnCooldown ? `${nudgeCooldownLabel}m 💌` : 'Nudge'}
                                     </Text>
                                 </TouchableOpacity>
                             )}

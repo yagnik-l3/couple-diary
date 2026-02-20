@@ -1,4 +1,3 @@
-import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import OutlineButton from '@/components/OutlineButton';
 import StarBackground from '@/components/StarBackground';
@@ -13,13 +12,12 @@ import Animated, {
     Easing,
     FadeIn,
     FadeInUp,
-    FadeOut,
     useAnimatedStyle,
     useSharedValue,
     withRepeat,
     withSequence,
     withSpring,
-    withTiming,
+    withTiming
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -68,11 +66,11 @@ export default function WaitingScreen() {
 
     // ─── Cooldown Timer ───────────────────────────────
     const getCooldownMs = useCallback(() => {
-        if (!state.lastNudgeTime) return 0;
-        const elapsed = Date.now() - new Date(state.lastNudgeTime).getTime();
+        if (!state.lastNudgeAt) return 0;
+        const elapsed = Date.now() - new Date(state.lastNudgeAt).getTime();
         const cooldown = state.nudgeCooldownMinutes * 60 * 1000;
         return Math.max(0, cooldown - elapsed);
-    }, [state.lastNudgeTime, state.nudgeCooldownMinutes]);
+    }, [state.lastNudgeAt, state.nudgeCooldownMinutes]);
 
     useEffect(() => {
         const tick = () => {
@@ -95,30 +93,14 @@ export default function WaitingScreen() {
             withSpring(1.15, { damping: 4, stiffness: 400 }),
             withSpring(1, { damping: 8, stiffness: 200 }),
         );
-        update({ lastNudgeTime: new Date().toISOString() });
-        setNudgeSent(true);
-        setCooldownRemaining(state.nudgeCooldownMinutes * 60 * 1000);
-        setTimeout(() => setNudgeSent(false), 3000);
 
-        // Insert nudge into DB — this triggers a push notification via Postgres trigger
         try {
-            const { supabase } = await import('@/utils/supabase');
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('couple_id')
-                    .eq('id', user.id)
-                    .single();
-                if (profile?.couple_id) {
-                    await supabase.from('nudges').insert({
-                        sender_id: user.id,
-                        couple_id: profile.couple_id,
-                    });
-                }
-            }
+            const { sendNudge } = await import('@/utils/supabase');
+            await sendNudge();
+            update({ lastNudgeAt: new Date().toISOString() });
+            setCooldownRemaining(state.nudgeCooldownMinutes * 60 * 1000);
         } catch (err) {
-            console.warn('Nudge insert error:', err);
+            console.warn('Nudge error:', err);
         }
     };
 
@@ -195,22 +177,6 @@ export default function WaitingScreen() {
                     </Text>
                 </Animated.View>
 
-                {/* Status */}
-                <Animated.View entering={FadeInUp.delay(900).duration(600)} style={styles.statusCard}>
-                    <View style={styles.statusRow}>
-                        <View style={styles.statusDot} />
-                        <Text style={styles.statusText}>You answered</Text>
-                        <Text style={styles.statusCheck}>✓</Text>
-                    </View>
-                    <View style={styles.statusDivider} />
-                    <View style={styles.statusRow}>
-                        <View style={partnerAnswered ? styles.statusDot : styles.statusDotWaiting} />
-                        <Text style={styles.statusText}>Partner</Text>
-                        <Text style={partnerAnswered ? styles.statusCheck : styles.statusWaiting}>
-                            {partnerAnswered ? '✓' : 'waiting...'}
-                        </Text>
-                    </View>
-                </Animated.View>
 
                 {/* Nudge Button */}
                 {!partnerAnswered && (
@@ -222,25 +188,6 @@ export default function WaitingScreen() {
                             style={styles.nudgeButton}
                         />
                     </Animated.View>
-                )}
-
-                {/* Nudge Sent Toast */}
-                {nudgeSent && (
-                    <Animated.View
-                        entering={FadeInUp.duration(400).springify()}
-                        exiting={FadeOut.duration(300)}
-                        style={styles.nudgeToast}
-                    >
-                        <Text style={styles.nudgeToastText}>Nudge Sent! 💌</Text>
-                    </Animated.View>
-                )}
-
-                {partnerAnswered && (
-                    <GlowButton
-                        title="View Reveal 💫"
-                        onPress={() => router.replace({ pathname: '/(main)/reveal', params: { daily_id } } as any)}
-                        style={styles.revealButton}
-                    />
                 )}
 
                 {/* Back Button */}
