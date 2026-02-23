@@ -141,9 +141,8 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.md,
     },
     backLink: {
-        ...Typography.bodyMedium,
-        color: Colors.softPink,
-        fontSize: s(16),
+        ...Typography.body,
+        color: Colors.textSecondary,
     },
 
     // Header
@@ -157,7 +156,6 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
     },
     dayBadge: {
         backgroundColor: 'rgba(245, 208, 138, 0.12)',

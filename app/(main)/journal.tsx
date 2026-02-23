@@ -236,7 +236,6 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: Typography.md.fontSize,
     },
     headerTitle: {
         ...Typography.heading,

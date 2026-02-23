@@ -199,7 +199,6 @@ const styles = StyleSheet.create({
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
-        fontSize: 15,
     },
     headerTitle: {
         ...Typography.bodySemiBold,
