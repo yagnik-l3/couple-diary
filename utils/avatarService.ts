@@ -46,18 +46,19 @@ export async function pickAndCropAvatar(): Promise<string | null> {
     if (!user) throw new Error('Not authenticated');
 
     // Upload to Supabase
+    // NOTE: We use ArrayBuffer instead of Blob. React Native's fetch().blob()
+    // produces a non-standard Blob that Supabase Storage rejects with HTTP 400 on Android.
     let avatarUrl: string;
     try {
         const response = await fetch(manipulated.uri);
-        const blob = await response.blob();
+        const arrayBuffer = await response.arrayBuffer();
 
-        const fileExt = manipulated.uri.split('.').pop()?.toLowerCase() || 'jpeg';
         const filePath = `${user.id}/avatar.jpg`; // Consistent file path for user's avatar
 
         const { error: uploadError } = await supabase.storage
             .from(BUCKET)
-            .upload(filePath, blob, {
-                contentType: `image/${fileExt}`,
+            .upload(filePath, arrayBuffer, {
+                contentType: 'image/jpeg',
                 upsert: true,
             });
 

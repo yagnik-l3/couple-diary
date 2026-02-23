@@ -127,7 +127,7 @@ export default function HomeScreen() {
                 {/* Top Section */}
                 <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.topSection}>
                     <View style={styles.topRow}>
-                        <AvatarMerge size={44} />
+                        <AvatarMerge size={44} avatar1Uri={state.avatarUrl} avatar2Uri={state.partnerAvatarUrl} />
                         <View style={styles.topInfo}>
                             <Text style={styles.coupleNames} numberOfLines={1}>
                                 {state.userFirstName || 'You'} & {state.partnerName || 'Love'}
@@ -138,8 +138,10 @@ export default function HomeScreen() {
                                 </Text>
                             </Pressable>
                         </View>
-                        {/* Streak Badge - Linked to Timeline */}
-                        <TouchableOpacity onPress={() => router.push('/(main)/timeline')}>
+                        {/* Badges - Linked to Timeline */}
+                        <TouchableOpacity
+                            onPress={() => router.push('/(main)/timeline')}
+                        >
                             <StreakBadge count={state.streakCount} size="sm" />
                         </TouchableOpacity>
                     </View>
@@ -147,8 +149,8 @@ export default function HomeScreen() {
 
                 {/* Center Galaxy */}
                 <Animated.View entering={FadeIn.delay(500).duration(1200)} style={styles.galaxyContainer}>
-                    {/* <GalaxySphere size={width * 0.6} streakCount={390} /> */}
                     <GalaxySphere size={width * 0.6} streakCount={state.streakCount} />
+                    {/* <GalaxySphere size={width * 0.6} streakCount={state.streakCount} /> */}
                     <Text style={styles.galaxyLabel}>Day {state.streakCount} of Your Universe</Text>
                 </Animated.View>
 

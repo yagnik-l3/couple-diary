@@ -6,7 +6,7 @@ import StarBackground from '@/components/StarBackground';
 import { Colors, Gradients, Radius, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
-import { incrementStreak } from '@/utils/supabase';
+import { incrementStreak, supabase } from '@/utils/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -37,7 +37,7 @@ export default function RevealScreen() {
 
                 // Fetch both answers
                 const answers = await QuestionService.getRevealAnswers(daily_id);
-                const { data: { user } } = await (await import('@/utils/supabase')).supabase.auth.getUser();
+                const { data: { user } } = await supabase.auth.getUser();
 
                 for (const ans of answers) {
                     if (ans.user_id === user?.id) {

@@ -81,13 +81,18 @@ export default function UrgencyHUD({
 
     // Config based on state
     const getConfig = () => {
+        const [h, m] = countdown.split(':').map(Number);
+        const totalMinutes = (h || 0) * 60 + (m || 0);
+        const isCritical = state === 'answer' && totalMinutes < 120; // < 2 hours
+
         switch (state) {
             case 'answer':
                 return {
-                    icon: '🔥',
-                    title: 'Time is ticking...',
-                    gradient: Gradients.streakBanner, // reusing alert/streak
+                    icon: isCritical ? '🧨' : '🔥',
+                    title: isCritical ? 'URGENT: Save your streak!' : 'Time is ticking...',
+                    gradient: isCritical ? Gradients.streakBanner : Gradients.button,
                     action: null,
+                    isCritical,
                 };
             case 'waiting':
                 return {
@@ -140,9 +145,13 @@ export default function UrgencyHUD({
 
                         <View style={styles.row}>
                             {/* Icon with optional pulse */}
-                            <Animated.Text style={[styles.icon, state === 'answer' && animatedStyle]}>
+                            <Animated.Text style={[
+                                styles.icon,
+                                (state === 'answer' || (config as any).isCritical) && animatedStyle
+                            ]}>
                                 {config.icon}
                             </Animated.Text>
+
 
                             {/* Text Info */}
                             <View style={styles.textContainer}>

@@ -12,7 +12,21 @@ const { width } = Dimensions.get('window');
 
 export default function StreakLostScreen() {
     const router = useRouter();
-    const { state } = useAppState();
+    const { state, update } = useAppState();
+    const { acknowledgeStreakLoss } = require('@/utils/supabase');
+
+    const handleRestart = async () => {
+        try {
+            await acknowledgeStreakLoss();
+            update({
+                streakCount: 0,
+                sawStreakLost: true
+            });
+            router.replace('/(main)/home');
+        } catch (err) {
+            console.warn('Restart error:', err);
+        }
+    };
 
     return (
         <GradientBackground variant="full">
@@ -54,14 +68,14 @@ export default function StreakLostScreen() {
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
                         <Text style={styles.statValue}>{state.streakCount || 0}</Text>
-                        <Text style={styles.statLabel}>Current</Text>
+                        <Text style={styles.statLabel}>Lost Streak</Text>
                     </View>
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.delay(1100).duration(600)}>
                     <GlowButton
                         title="Restart Journey ✨"
-                        onPress={() => router.replace('/(main)/home')}
+                        onPress={handleRestart}
                         style={styles.restartButton}
                     />
                 </Animated.View>
@@ -174,5 +188,14 @@ const styles = StyleSheet.create({
     restartButton: {
         width: '100%',
         minWidth: 300,
+    },
+    restartLink: {
+        alignItems: 'center',
+        paddingVertical: Spacing.sm,
+    },
+    restartLinkText: {
+        ...Typography.caption,
+        color: Colors.textMuted,
+        textDecorationLine: 'underline',
     },
 });

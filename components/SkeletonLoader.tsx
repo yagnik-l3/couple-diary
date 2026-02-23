@@ -1,6 +1,6 @@
 import { Colors, Radius } from '@/constants/theme';
 import React, { useEffect } from 'react';
-import { DimensionValue, StyleSheet, ViewStyle } from 'react-native';
+import { DimensionValue, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
@@ -12,7 +12,7 @@ interface SkeletonProps {
     width?: DimensionValue;
     height?: DimensionValue;
     borderRadius?: number;
-    style?: ViewStyle;
+    style?: StyleProp<ViewStyle>;
 }
 
 const SkeletonBase: React.FC<SkeletonProps> = ({

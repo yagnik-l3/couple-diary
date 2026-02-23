@@ -16,8 +16,7 @@ export default function MainLayout() {
                     router.replace('/onboarding?resume=invite');
                     return;
                 }
-                // Refresh store with latest profile data — done once here so
-                // individual screens (home, etc.) don't need to re-fetch.
+                // 1. Refresh store with latest profile data
                 update({
                     streakCount: profile.streak_count,
                     bestStreak: profile.best_streak,
@@ -29,7 +28,7 @@ export default function MainLayout() {
                     userBirthDate: profile.birth_date || '',
                     relationshipDate: profile.relationship_date || '',
                     topicPreferences: profile.topic_preferences || [],
-                    lives: profile.lives || 1,
+                    sawStreakLost: profile.sawStreakLost,
                     hasPartner: true,
                     questionsAnswered: profile.questions_answered || 0,
                     avatarUrl: profile.avatar_url || '',
@@ -43,6 +42,25 @@ export default function MainLayout() {
                     reminderTime: profile.reminder_time,
                     coupleId: profile.couple_id || '',
                 });
+
+                // 2. Perform streak check
+                const { QuestionService } = await import('@/utils/questionService');
+                const { handleStreakLoss } = await import('@/utils/supabase');
+                const status = await QuestionService.checkStreakStatus();
+
+                if (status === 'LOST') {
+                    if (profile.streak_count > 0) {
+                        // This launch just DETECTED the loss. 
+                        // Reset everything in DB and set saw flags to false.
+                        await handleStreakLoss();
+                        // Then navigate
+                        router.replace('/(main)/streak-lost');
+                    } else if (!profile.sawStreakLost) {
+                        // Already reset in DB by partner, but this user hasn't seen the screen yet.
+                        router.replace('/(main)/streak-lost');
+                    }
+                }
+
             } catch {
                 // If profile fetch fails, let them through (auth guard handles the rest)
             }

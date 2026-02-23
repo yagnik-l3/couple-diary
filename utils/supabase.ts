@@ -135,7 +135,7 @@ export async function getProfile() {
         couple_editor_id: coupleData?.editor_user_id || null,
         streak_count: coupleData?.streak_count || 0,
         best_streak: coupleData?.best_streak || 0,
-        lives: coupleData?.lives || 1,
+        sawStreakLost: coupleData ? (coupleData.user_a === user.id ? coupleData.user_a_saw_streak_lost : coupleData.user_b_saw_streak_lost) : true,
         partner_name: partnerProfile?.first_name || partnerProfile?.name || 'Partner',
         partner_avatar_url: partnerProfile?.avatar_url || null,
         questions_answered: profile.questions_answered || 0,
@@ -325,6 +325,8 @@ export async function incrementStreak(dailyId: string) {
             streak_count: newStreak,
             best_streak: newBest,
             last_streak_daily_id: dailyId,
+            user_a_saw_streak_lost: true, // Reset flags when streak starts
+            user_b_saw_streak_lost: true,
         })
         .eq('id', profile.couple_id)
         .select()
@@ -334,8 +336,35 @@ export async function incrementStreak(dailyId: string) {
     return data;
 }
 
-/** Reset streak to 0 */
-export async function resetStreak() {
+/** Get the date of the last daily question fully answered by the couple. */
+export async function getLastAnsweredDate(): Promise<string | null> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('couple_id')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile?.couple_id) return null;
+
+    // We look for the most recent daily_question where the number of answers is 2
+    const { data, error } = await supabase
+        .from('daily_questions')
+        .select('date, answers(id)')
+        .eq('couple_id', profile.couple_id)
+        .order('date', { ascending: false });
+
+    if (error) throw error;
+
+    // Find the first date where both partners answered
+    const lastResult = data?.find(dq => (dq.answers?.length || 0) >= 2);
+    return lastResult?.date || null;
+}
+
+/** Reset streak to 0 and mark that users need to be notified of the loss. */
+export async function handleStreakLoss() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
@@ -349,7 +378,40 @@ export async function resetStreak() {
 
     await supabase
         .from('couples')
-        .update({ streak_count: 0 })
+        .update({
+            streak_count: 0,
+            user_a_saw_streak_lost: false,
+            user_b_saw_streak_lost: false
+        })
+        .eq('id', profile.couple_id);
+}
+
+/** Acknowledge that the current user has seen the streak loss screen. */
+export async function acknowledgeStreakLoss() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, couple_id')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile?.couple_id) return;
+
+    const { data: couple } = await supabase
+        .from('couples')
+        .select('user_a, user_b')
+        .eq('id', profile.couple_id)
+        .single();
+
+    if (!couple) return;
+
+    const columnToUpdate = couple.user_a === profile.id ? 'user_a_saw_streak_lost' : 'user_b_saw_streak_lost';
+
+    await supabase
+        .from('couples')
+        .update({ [columnToUpdate]: true })
         .eq('id', profile.couple_id);
 }
 

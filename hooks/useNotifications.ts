@@ -58,8 +58,8 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
 // ─── Hook ─────────────────────────────────────────────
 export function useNotifications() {
     const router = useRouter();
-    const notificationListener = useRef<Notifications.EventSubscription>();
-    const responseListener = useRef<Notifications.EventSubscription>();
+    const notificationListener = useRef<Notifications.Subscription>(undefined);
+    const responseListener = useRef<Notifications.Subscription>(undefined);
 
     useEffect(() => {
         // Register and store token

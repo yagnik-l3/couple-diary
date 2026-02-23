@@ -20,10 +20,7 @@ export interface AppState {
     streakCount: number;
     bestStreak: number;
     questionsAnswered: number;
-
-    // Lives
-    lives: number;
-    lastFreeLifeMonth: string; // "YYYY-MM" — tracks last monthly free life
+    sawStreakLost: boolean;
 
     // Nudge
     lastNudgeAt: string; // ISO string
@@ -60,8 +57,7 @@ const DEFAULT_STATE: AppState = {
     streakCount: 0,
     bestStreak: 0,
     questionsAnswered: 0,
-    lives: 1,
-    lastFreeLifeMonth: '',
+    sawStreakLost: true,
     lastNudgeAt: '',
     nudgeNotificationsEnabled: true,
     dailyRemindersEnabled: true,
@@ -86,14 +82,12 @@ interface AppContextType {
     state: AppState;
     update: (partial: Partial<AppState>) => void;
     reset: () => void;
-    checkMonthlyLife: () => void;
 }
 
 const AppContext = createContext<AppContextType>({
     state: DEFAULT_STATE,
     update: () => { },
     reset: () => { },
-    checkMonthlyLife: () => { },
 });
 
 export function useAppState() {
@@ -135,21 +129,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setState({ ...DEFAULT_STATE });
     }, []);
 
-    const checkMonthlyLife = useCallback(() => {
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        if (state.lastFreeLifeMonth !== currentMonth) {
-            setState((prev) => ({
-                ...prev,
-                lives: prev.lives + 1,
-                lastFreeLifeMonth: currentMonth,
-            }));
-        }
-    }, [state.lastFreeLifeMonth]);
-
     const contextValue = React.useMemo(
-        () => ({ state, update, reset, checkMonthlyLife }),
-        [state, update, reset, checkMonthlyLife]
+        () => ({ state, update, reset }),
+        [state, update, reset]
     );
 
     return React.createElement(AppContext.Provider, { value: contextValue }, children);

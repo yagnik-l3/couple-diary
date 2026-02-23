@@ -1,5 +1,6 @@
 import FloatingCard from '@/components/FloatingCard';
 import GradientBackground from '@/components/GradientBackground';
+import InlineToast from '@/components/InlineToast';
 import PremiumDatePicker from '@/components/PremiumDatePicker';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
@@ -83,6 +84,11 @@ export default function EditProfileScreen() {
     const [loading, setLoading] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(state.avatarUrl || '');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+        setToast({ message, type });
+    };
 
     const handleAvatarPick = async () => {
         setUploadingAvatar(true);
@@ -93,7 +99,7 @@ export default function EditProfileScreen() {
                 update({ avatarUrl: url });
             }
         } catch (err: any) {
-            alert(err.message || 'Failed to upload photo');
+            showToast(err.message || 'Failed to upload photo', 'error');
         } finally {
             setUploadingAvatar(false);
         }
@@ -203,7 +209,7 @@ export default function EditProfileScreen() {
             router.back();
         } catch (error) {
             console.error(error);
-            alert('Failed to update profile');
+            showToast('Failed to update profile. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
@@ -251,6 +257,19 @@ export default function EditProfileScreen() {
                     {loading ? <ActivityIndicator color={Colors.textPrimary} /> : <Text style={styles.saveText}>Save</Text>}
                 </TouchableOpacity>
             </View>
+
+            {/* Inline Toast */}
+            {toast && (
+                <View style={{ paddingHorizontal: Spacing.lg }}>
+                    <InlineToast
+                        message={toast.message}
+                        visible={!!toast}
+                        type={toast.type}
+                        duration={4000}
+                        onHide={() => setToast(null)}
+                    />
+                </View>
+            )}
 
             <KeyboardAvoidingView
                 style={{ flex: 1 }}

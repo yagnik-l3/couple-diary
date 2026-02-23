@@ -127,7 +127,7 @@ export default function JournalScreen() {
                 setAllDates(new Set(all.map(e => e.date)));
                 setSaveStatus('saved');
                 savedTimeout.current = setTimeout(() => setSaveStatus('idle'), 2000);
-            }, 3000);
+            }, 2000);
         },
         [selectedDate],
     );

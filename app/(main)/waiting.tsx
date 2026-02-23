@@ -180,13 +180,15 @@ export default function WaitingScreen() {
 
                 {/* Nudge Button */}
                 {!partnerAnswered && (
-                    <Animated.View entering={FadeInUp.delay(1100).duration(600)} style={[nudgeBtnStyle, styles.nudgeContainer]}>
-                        <OutlineButton
-                            title={isOnCooldown ? `Nudge again in ${cooldownMinutes}m` : 'Nudge Partner 💌'}
-                            onPress={handleNudge}
-                            disabled={isOnCooldown}
-                            style={styles.nudgeButton}
-                        />
+                    <Animated.View entering={FadeInUp.delay(1100).duration(600)} style={styles.nudgeContainer}>
+                        <Animated.View style={nudgeBtnStyle}>
+                            <OutlineButton
+                                title={isOnCooldown ? `Nudge again in ${cooldownMinutes}m` : 'Nudge Partner 💌'}
+                                onPress={handleNudge}
+                                disabled={isOnCooldown}
+                                style={styles.nudgeButton}
+                            />
+                        </Animated.View>
                     </Animated.View>
                 )}
 

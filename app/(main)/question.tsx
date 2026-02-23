@@ -1,6 +1,7 @@
 import FloatingCard from '@/components/FloatingCard';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
+import InlineToast from '@/components/InlineToast';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
@@ -28,6 +29,7 @@ export default function QuestionScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [question, setQuestion] = useState<{ text: string; category: string; daily_id: string } | null>(null);
     const [error, setError] = useState('');
+    const [submitError, setSubmitError] = useState('');
 
     // Fetch today's question on mount
     useEffect(() => {
@@ -62,7 +64,7 @@ export default function QuestionScreen() {
                 router.replace({ pathname: '/(main)/waiting', params: { daily_id: question.daily_id } } as any);
             }
         } catch (err: any) {
-            alert(err.message || 'Failed to submit');
+            setSubmitError(err.message || 'Failed to submit. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -174,12 +176,24 @@ export default function QuestionScreen() {
                         </View>
                     </Animated.View>
 
+                    {/* Submit Error Toast */}
+                    {submitError ? (
+                        <InlineToast
+                            message={submitError}
+                            visible={!!submitError}
+                            type="error"
+                            duration={4000}
+                            onHide={() => setSubmitError('')}
+                        />
+                    ) : null}
+
                     <Animated.View entering={FadeInUp.delay(800).duration(600)}>
                         <GlowButton
-                            title={submitting ? "Sending..." : "Send to Universe ✨"}
+                            title="Send to Universe ✨"
                             onPress={handleSubmit}
                             disabled={answer.trim().length === 0 || submitting}
                             style={styles.sendButton}
+                            loading={submitting}
                         />
                     </Animated.View>
                 </ScrollView>

@@ -238,4 +238,31 @@ export const QuestionService = {
             created_at: result.created_at || new Date().toISOString()
         };
     },
+
+    /**
+     * Check streak validity.
+     * Returns: 
+     * - 'SAFE': Both answered today or answered yesterday + today still active.
+     * - 'AT_RISK': Answered yesterday, but today's is not yet answered by both.
+     * - 'LOST': Missed at least one full day.
+     */
+    checkStreakStatus: async (): Promise<'SAFE' | 'AT_RISK' | 'LOST'> => {
+        const todayStr = getTodayDate();
+        const { getLastAnsweredDate } = await import('./supabase');
+        const lastDate = await getLastAnsweredDate();
+
+        if (!lastDate) return 'SAFE'; // New couple or no answers yet
+
+        const today = new Date(todayStr);
+        const last = new Date(lastDate);
+        const diffDays = Math.floor((today.getTime() - last.getTime()) / (1000 * 3600 * 24));
+
+        if (diffDays === 0) {
+            return 'SAFE'; // Already answered today
+        } else if (diffDays === 1) {
+            return 'AT_RISK'; // Answered yesterday, need today's
+        } else {
+            return 'LOST'; // Missed at least one day
+        }
+    }
 };
