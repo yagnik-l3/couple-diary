@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.yagnikl3.couplediary"
+      "package": "com.laughlogiclabs.couple_diary",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -38,6 +39,15 @@
           "dark": {
             "backgroundColor": "#0B0D2E"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#6C3DB8",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Couple Diary"
         }
       ],
       "@react-native-community/datetimepicker"
