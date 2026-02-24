@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
     },
     editButton: {
-        padding: Spacing.sm,
+        paddingHorizontal: Spacing.sm,
     },
     editText: {
         ...Typography.caption,
