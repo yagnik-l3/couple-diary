@@ -1,4 +1,3 @@
-import { useNotifications } from '@/hooks/useNotifications';
 import { AppStateProvider } from '@/utils/store';
 import {
   Inter_400Regular,
@@ -18,11 +17,6 @@ import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync();
-
-function NotificationProvider({ children }: { children: React.ReactNode }) {
-  useNotifications();
-  return <>{children}</>;
-}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -45,23 +39,21 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AppStateProvider>
-        <NotificationProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#0B0D2E' },
-              animation: 'fade',
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="login" />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="connected" />
-            <Stack.Screen name="couple-setup" />
-            <Stack.Screen name="(main)" />
-          </Stack>
-        </NotificationProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#0B0D2E' },
+            animation: 'fade',
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="connected" />
+          <Stack.Screen name="couple-setup" />
+          <Stack.Screen name="(main)" />
+        </Stack>
       </AppStateProvider>
     </SafeAreaProvider>
   );

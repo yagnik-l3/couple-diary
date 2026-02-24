@@ -1,3 +1,4 @@
+import { useNotifications } from '@/hooks/useNotifications';
 import { useAppState } from '@/utils/store';
 import { getProfile } from '@/utils/supabase';
 import { Stack, useRouter } from 'expo-router';
@@ -6,6 +7,7 @@ import { useEffect } from 'react';
 export default function MainLayout() {
     const router = useRouter();
     const { update } = useAppState();
+    useNotifications();
 
     useEffect(() => {
         (async () => {
