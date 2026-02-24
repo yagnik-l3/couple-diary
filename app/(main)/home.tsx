@@ -122,7 +122,7 @@ export default function HomeScreen() {
 
     return (
         <GradientBackground>
-            <StarBackground streakCount={390} />
+            <StarBackground streakCount={state.streakCount} />
             <View style={styles.container}>
                 {/* Top Section */}
                 <Animated.View entering={FadeInUp.delay(200).duration(800)} style={styles.topSection}>
@@ -151,7 +151,7 @@ export default function HomeScreen() {
                 <Animated.View entering={FadeIn.delay(500).duration(1200)} style={styles.galaxyContainer}>
                     <GalaxySphere size={width * 0.6} streakCount={state.streakCount} />
                     {/* <GalaxySphere size={width * 0.6} streakCount={state.streakCount} /> */}
-                    <Text style={styles.galaxyLabel}>Day {state.streakCount} of Your Universe</Text>
+                    {/* <Text style={styles.galaxyLabel}>Day {state.streakCount} of Your Universe</Text> */}
                 </Animated.View>
 
                 {/* Backdrop overlay when menu is open (Optional: prevents galaxy interaction) */}

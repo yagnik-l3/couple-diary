@@ -19,7 +19,7 @@ export default function StreakBadge({ count, size = 'md' }: Props) {
     return (
         <View style={styles.container}>
             <LinearGradient
-                colors={Gradients.streakBanner}
+                colors={Gradients.button}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.badge, { height: s.badge, paddingHorizontal: s.badge * 0.4, borderRadius: s.badge / 2 }]}

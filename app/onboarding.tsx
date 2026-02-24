@@ -508,9 +508,9 @@ export default function OnboardingScreen() {
                         {currentStep.id === 'galaxy' ? (
                             <Animated.View entering={FadeInUp.delay(50).duration(700)} style={styles.galaxyPreviewContainer}>
                                 <GalaxySphere size={200} streakCount={50} />
-                                <Animated.Text entering={FadeInUp.delay(300).duration(400)} style={styles.galaxyPreviewLabel}>
+                                {/* <Animated.Text entering={FadeInUp.delay(300).duration(400)} style={styles.galaxyPreviewLabel}>
                                     50-day universe ✨
-                                </Animated.Text>
+                                </Animated.Text> */}
                             </Animated.View>
                         ) : (
                             <PulsingIcon icon={currentStep.icon!} />
