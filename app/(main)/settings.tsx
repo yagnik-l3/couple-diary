@@ -362,7 +362,7 @@ export default function SettingsScreen() {
                     actionSheet.message || (
                         actionSheet.type === 'logout'
                             ? 'Are you sure you want to log out?'
-                            : 'Are you sure you want to delete your account? This action cannot be undone.'
+                            : 'Are you sure you want to delete your account? This will permanently erase your profile, all shared memories, and your personal journal. Your partner will be disconnected. This action cannot be undone.'
                     )
                 }
                 icon={actionSheet.icon || (actionSheet.type === 'logout' ? '🚪' : '🗑️')}

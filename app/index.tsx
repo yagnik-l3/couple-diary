@@ -3,8 +3,8 @@ import StarBackground from '@/components/StarBackground';
 import { Colors, Spacing, Typography } from '@/constants/theme';
 import { getProfile, getSession } from '@/utils/supabase';
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
+const MIN_SPLASH_DURATION = 2200; // Minimum ms the splash is visible before navigating
 
 export default function SplashScreen() {
     const router = useRouter();
@@ -22,50 +23,88 @@ export default function SplashScreen() {
     const taglineOpacity = useSharedValue(0);
     const taglineTranslateY = useSharedValue(20);
 
+    const [showRetry, setShowRetry] = useState(false);
+    const [retrying, setRetrying] = useState(false);
+
+    // ── Resolves the correct destination route without navigating yet.
+    // Retries once on transient network failures before giving up.
+    const resolveRoute = useCallback(async (): Promise<string> => {
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                const session = await getSession();
+
+                if (!session) {
+                    // No session at all → full onboarding flow.
+                    return '/onboarding';
+                }
+
+                // Session exists — fetch profile to check how far setup got.
+                const profile = await getProfile();
+
+                if (!profile) {
+                    // Authenticated but profile row missing → start at name step.
+                    return '/onboarding?resume=name';
+                }
+
+                if (!profile.couple_id) {
+                    // Profile exists but not yet paired → jump to invite step.
+                    return '/onboarding?resume=invite';
+                }
+
+                // Fully set up → home screen!
+                return '/(main)/home';
+            } catch (err) {
+                if (attempt === 0) {
+                    // Wait briefly then retry once for transient network hiccups.
+                    await new Promise(r => setTimeout(r, 600));
+                    continue;
+                }
+                // Second attempt also failed.
+                // If we still have a locally-cached session trust it and go home;
+                // the main layout re-fetches the profile once the network recovers.
+                console.warn('[Splash] Auth check failed after retry:', err);
+                try {
+                    const session = await getSession();
+                    if (session) return '/(main)/home';
+                } catch { /* ignore */ }
+            }
+        }
+        // Truly unrecoverable — restart from fresh onboarding.
+        return '/onboarding';
+    }, []);
+
+    // ── Runs auth + waits for minimum splash duration before navigating.
+    const runAuthFlow = useCallback(async () => {
+        setRetrying(true);
+        setShowRetry(false);
+        try {
+            const minDisplay = new Promise<void>(r => setTimeout(r, MIN_SPLASH_DURATION));
+
+            // Auth check starts IMMEDIATELY in parallel with the animation.
+            // Navigation only fires once BOTH the route is resolved AND the
+            // minimum display time has elapsed — eliminating the race condition.
+            const [, route] = await Promise.all([minDisplay, resolveRoute()]);
+            router.replace(route as any);
+        } catch (err) {
+            // resolveRoute() handles its own errors internally; this only fires
+            // on truly unexpected failures (e.g., router itself threw).
+            console.error('[Splash] Unhandled error in auth flow:', err);
+            setShowRetry(true);
+        } finally {
+            setRetrying(false);
+        }
+    }, [resolveRoute, router]);
+
     useEffect(() => {
-        // Animate logo in
+        // Start animations.
         logoOpacity.value = withTiming(1, { duration: 1200, easing: Easing.out(Easing.ease) });
         logoScale.value = withTiming(1, { duration: 1200, easing: Easing.out(Easing.back(1.5)) });
-
-        // Animate tagline after logo
         taglineOpacity.value = withDelay(800, withTiming(1, { duration: 1000 }));
         taglineTranslateY.value = withDelay(800, withTiming(0, { duration: 1000, easing: Easing.out(Easing.ease) }));
 
-        // Check auth state and navigate
-        const timer = setTimeout(async () => {
-            try {
-                const session = await getSession();
-                if (!session) {
-                    // No session → full onboarding (intro + auth)
-                    router.replace('/onboarding');
-                    return;
-                }
-
-                // Session exists — check profile
-                const profile = await getProfile();
-                if (!profile) {
-                    // Auth but no profile → skip intros + auth, start at name
-                    router.replace('/onboarding?resume=name');
-                    return;
-                }
-
-                // Profile exists — check partner
-                if (!profile.couple_id) {
-                    // Profile but no partner → skip to invite step
-                    router.replace('/onboarding?resume=invite');
-                    return;
-                }
-
-                // Fully set up → home
-                router.replace('/(main)/home');
-            } catch {
-                // On error, start fresh
-                router.replace('/onboarding');
-            }
-        }, 2500);
-
-        return () => clearTimeout(timer);
-    }, []);
+        // Start auth check at the same time (not after a fixed delay).
+        runAuthFlow();
+    }, [logoOpacity, logoScale, taglineOpacity, taglineTranslateY, runAuthFlow]);
 
     const logoStyle = useAnimatedStyle(() => ({
         opacity: logoOpacity.value,
@@ -93,6 +132,20 @@ export default function SplashScreen() {
                 <Animated.Text style={[styles.tagline, taglineStyle]}>
                     Grow Your Universe Together
                 </Animated.Text>
+
+                {showRetry && (
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={runAuthFlow}
+                        disabled={retrying}
+                    >
+                        {retrying ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.retryButtonText}>Retry</Text>
+                        )}
+                    </TouchableOpacity>
+                )}
             </View>
         </GradientBackground>
     );
@@ -135,5 +188,17 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         marginTop: Spacing.xxl,
         letterSpacing: 1,
+    },
+    retryButton: {
+        marginTop: Spacing.xl,
+        paddingVertical: Spacing.sm,
+        paddingHorizontal: Spacing.lg,
+        backgroundColor: Colors.violet,
+        borderRadius: Spacing.md,
+    },
+    retryButtonText: {
+        ...Typography.body,
+        color: '#fff',
+        fontWeight: 'bold',
     },
 });
