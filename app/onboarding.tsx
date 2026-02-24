@@ -1,5 +1,6 @@
 import AvatarMerge from '@/components/AvatarMerge';
 import FloatingCard from '@/components/FloatingCard';
+import GalaxySphere from '@/components/GalaxySphere';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import PremiumDatePicker from '@/components/PremiumDatePicker';
@@ -504,7 +505,16 @@ export default function OnboardingScreen() {
             case 'intro':
                 return (
                     <Animated.View key={currentStep.id} entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.introContent}>
-                        <PulsingIcon icon={currentStep.icon!} />
+                        {currentStep.id === 'galaxy' ? (
+                            <Animated.View entering={FadeInUp.delay(50).duration(700)} style={styles.galaxyPreviewContainer}>
+                                <GalaxySphere size={200} streakCount={50} />
+                                <Animated.Text entering={FadeInUp.delay(300).duration(400)} style={styles.galaxyPreviewLabel}>
+                                    50-day universe ✨
+                                </Animated.Text>
+                            </Animated.View>
+                        ) : (
+                            <PulsingIcon icon={currentStep.icon!} />
+                        )}
                         <Animated.Text
                             entering={FadeInUp.delay(150).duration(500)}
                             style={styles.introTitle}
@@ -665,7 +675,7 @@ export default function OnboardingScreen() {
 
             case 'reminder':
                 return (
-                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={styles.fieldContent}>
+                    <Animated.View key="reminder" entering={FadeInUp.duration(600)} exiting={FadeOut.duration(200)} style={[styles.fieldContent]}>
                         <Text style={styles.fieldTitle}>{currentStep.title}</Text>
                         <Text style={styles.fieldSubtitle}>{currentStep.subtitle}</Text>
                         <View style={styles.reminderRow}>
@@ -907,6 +917,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: s(24),
     },
+    galaxyPreviewContainer: {
+        alignItems: 'center',
+        marginBottom: Spacing.xl,
+    },
+    galaxyPreviewLabel: {
+        ...Typography.caption,
+        fontSize: s(12),
+        color: Colors.textMuted,
+        marginTop: Spacing.sm,
+        letterSpacing: 0.5,
+    },
 
     // ─── Field screens ────────────────────────────────
     fieldContent: {
@@ -1063,6 +1084,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         gap: Spacing.sm,
         width: '100%',
+        justifyContent: 'center',
     },
     reminderCard: {
         alignItems: 'center',
@@ -1139,6 +1161,7 @@ const styles = StyleSheet.create({
     shareCode: {
         ...Typography.heading,
         color: Colors.softPink,
+        fontSize: s(16),
         letterSpacing: 4,
     },
     copyHint: {

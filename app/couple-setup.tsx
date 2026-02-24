@@ -1,3 +1,4 @@
+import GalaxySphere from '@/components/GalaxySphere';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import PremiumDatePicker from '@/components/PremiumDatePicker';
@@ -5,7 +6,7 @@ import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
 import { useAppState } from '@/utils/store';
-import { completeOnboarding as markOnboardingComplete, updateCoupleData, updateProfile } from '@/utils/supabase';
+import { completeOnboarding as markOnboardingComplete, supabase, updateCoupleData } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -114,6 +115,93 @@ export default function CoupleSetupScreen() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    // Editor permission state
+    const [isCheckingEditor, setIsCheckingEditor] = useState(true);
+    const [isWaiting, setIsWaiting] = useState(false);
+
+    // ─── Check & atomically claim editor role on mount ─
+    useEffect(() => {
+        let pollInterval: ReturnType<typeof setInterval> | null = null;
+
+        const checkEditorPermission = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) { setIsCheckingEditor(false); return; }
+
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('couple_id')
+                    .eq('id', user.id)
+                    .single();
+
+                if (!profile?.couple_id) {
+                    setIsCheckingEditor(false);
+                    return;
+                }
+
+                // ── Step 1: Try to atomically claim editor_user_id ──
+                // This update only fires if editor_user_id IS NULL in the row,
+                // so the first partner to arrive wins atomically.
+                const { error: claimError } = await supabase
+                    .from('couples')
+                    .update({ editor_user_id: user.id })
+                    .eq('id', profile.couple_id)
+                    .is('editor_user_id', null); // only if unclaimed
+
+                // ── Step 2: Read the actual value now ──
+                const { data: couple } = await supabase
+                    .from('couples')
+                    .select('editor_user_id')
+                    .eq('id', profile.couple_id)
+                    .single();
+
+                if (couple?.editor_user_id && couple.editor_user_id !== user.id) {
+                    // Someone else claimed editor — show waiting screen
+                    setIsWaiting(true);
+                    setIsCheckingEditor(false);
+
+                    // Poll until the editor has completed onboarding
+                    pollInterval = setInterval(async () => {
+                        try {
+                            const { data: editorProfile } = await supabase
+                                .from('profiles')
+                                .select('onboarding_completed_at')
+                                .eq('id', couple.editor_user_id)
+                                .single();
+
+                            if (editorProfile?.onboarding_completed_at) {
+                                if (pollInterval) clearInterval(pollInterval);
+                                // Mark this user's onboarding complete too
+                                await supabase
+                                    .from('profiles')
+                                    .update({ onboarding_completed_at: new Date().toISOString() })
+                                    .eq('id', user.id);
+                                update({ hasCompletedOnboarding: true });
+                                router.replace('/(main)/home');
+                            }
+                        } catch (e) {
+                            console.error('Waiting poll error:', e);
+                        }
+                    }, 3000);
+                    return;
+                }
+
+                // Current user is the editor (or just claimed it) — show form
+                setIsCheckingEditor(false);
+            } catch (e) {
+                console.error('Editor check error:', e);
+                setIsCheckingEditor(false);
+            }
+        };
+
+        checkEditorPermission();
+
+        return () => {
+            if (pollInterval) clearInterval(pollInterval);
+        };
+    }, []);
+
+
     // Load existing data if available
     useEffect(() => {
         if (state.relationshipDate) {
@@ -162,20 +250,18 @@ export default function CoupleSetupScreen() {
                 ? `${relationshipDate.getFullYear()}-${String(relationshipDate.getMonth() + 1).padStart(2, '0')}-${String(relationshipDate.getDate()).padStart(2, '0')}`
                 : null;
 
-            // 1. Update personal reminder time (profiles table)
-            await updateProfile({});
-
-            // 2. Update shared couple preferences (couples table)
+            // 1. Update shared couple preferences (couples table)
+            // NOTE: updateCoupleData also sets editor_user_id to this user
             await updateCoupleData({
                 topic_preferences: selectedTopics,
                 couple_vibe: coupleVibe,
                 relationship_date: relDateStr,
             });
 
-            // 3. Mark onboarding complete (profiles table)
+            // 2. Mark onboarding complete (profiles table)
             await markOnboardingComplete();
 
-            // 4. Update local state
+            // 3. Update local state
             update({
                 topicPreferences: selectedTopics,
                 coupleVibe: coupleVibe,
@@ -304,6 +390,50 @@ export default function CoupleSetupScreen() {
         }
     };
 
+    // ─── Checking editor state ─────────────────────────
+    if (isCheckingEditor) {
+        return (
+            <GradientBackground>
+                <StarBackground />
+                <View style={styles.waitingContainer}>
+                    <Animated.View entering={FadeInUp.duration(600)} style={styles.waitingContent}>
+                        <Text style={styles.waitingIcon}>🔄</Text>
+                        <Text style={styles.waitingTitle}>Loading...</Text>
+                    </Animated.View>
+                </View>
+            </GradientBackground>
+        );
+    }
+
+    // ─── Waiting screen (partner is the editor) ────────
+    if (isWaiting) {
+        return (
+            <GradientBackground>
+                <StarBackground />
+                <View style={styles.waitingContainer}>
+                    <Animated.View entering={FadeInUp.duration(700)} style={styles.waitingContent}>
+                        <Animated.View entering={FadeInUp.delay(100).duration(600)} style={styles.waitingGalaxyWrapper}>
+                            <GalaxySphere size={160} streakCount={1} />
+                        </Animated.View>
+
+                        <Animated.Text entering={FadeInUp.delay(200).duration(500)} style={styles.waitingTitle}>
+                            {'Your partner is setting\nup your universe 💫'}
+                        </Animated.Text>
+                        <Animated.Text entering={FadeInUp.delay(350).duration(500)} style={styles.waitingSubtitle}>
+                            {'Sit tight! We\'ll whisk you to your home\nscreen the moment they\'re done.'}
+                        </Animated.Text>
+
+                        <Animated.View entering={FadeInUp.delay(500).duration(400)} style={styles.waitingDotsRow}>
+                            {[0, 1, 2].map(i => (
+                                <View key={i} style={[styles.waitingDot, { opacity: 0.4 + i * 0.2 }]} />
+                            ))}
+                        </Animated.View>
+                    </Animated.View>
+                </View>
+            </GradientBackground>
+        );
+    }
+
     return (
         <GradientBackground>
             <StarBackground />
@@ -365,10 +495,53 @@ export default function CoupleSetupScreen() {
 }
 
 const styles = StyleSheet.create({
+    // ─── Waiting / Loading screens ────────────────────
+    waitingContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: Spacing.xl,
+    },
+    waitingContent: {
+        alignItems: 'center',
+    },
+    waitingGalaxyWrapper: {
+        marginBottom: Spacing.xl,
+    },
+    waitingIcon: {
+        fontSize: s(48),
+        marginBottom: Spacing.lg,
+    },
+    waitingTitle: {
+        ...Typography.heading,
+        fontSize: s(24),
+        textAlign: 'center',
+        lineHeight: s(34),
+        marginBottom: Spacing.md,
+    },
+    waitingSubtitle: {
+        ...Typography.body,
+        fontSize: s(14),
+        color: Colors.textSecondary,
+        textAlign: 'center',
+        lineHeight: s(22),
+        marginBottom: Spacing.xl,
+    },
+    waitingDotsRow: {
+        flexDirection: 'row',
+        gap: Spacing.sm,
+        marginTop: Spacing.md,
+    },
+    waitingDot: {
+        width: s(8),
+        height: s(8),
+        borderRadius: s(4),
+        backgroundColor: Colors.softPink,
+    },
+    // ─── Main Setup Screens ───────────────────────────
     container: {
         flex: 1,
         paddingTop: Spacing.xl,
-        // paddingTop: s(60),
     },
     topBar: {
         flexDirection: 'row',

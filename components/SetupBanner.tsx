@@ -23,6 +23,10 @@ export default function SetupBanner() {
     // Check if current user is the editor, or if no editor is assigned yet
     const isEditor = !state.coupleEditorId || state.coupleEditorId === state.userId;
 
+    // If someone else is already the editor, hide the banner entirely (they handle setup)
+    if (!isEditor) return null;
+
+
     const handlePress = () => {
         if (!isEditor) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
