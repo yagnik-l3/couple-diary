@@ -9,6 +9,7 @@ import { useAppState } from '@/utils/store';
 import { incrementStreak, supabase } from '@/utils/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
@@ -17,6 +18,7 @@ const { width } = Dimensions.get('window');
 
 export default function RevealScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const { daily_id } = useLocalSearchParams<{ daily_id: string }>();
     const { state, update } = useAppState();
     const [loading, setLoading] = useState(true);
@@ -59,6 +61,13 @@ export default function RevealScreen() {
                             partnerAnsweredToday: true,
                         });
                         setStreakUpdated(true);
+
+                        // Track answer revealed (mutual daily connection completed)
+                        posthog.capture('answer_revealed', {
+                            new_streak_count: coupleData.streak_count,
+                            best_streak: coupleData.best_streak,
+                            is_new_best: coupleData.streak_count >= coupleData.best_streak,
+                        });
                     } catch (err) {
                         console.warn('Streak update note:', err);
                     }

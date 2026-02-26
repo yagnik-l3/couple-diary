@@ -8,6 +8,7 @@ import { useAppState } from '@/utils/store';
 import { deleteUserAccount, getInviteCode, signOut } from '@/utils/supabase';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useCallback, useState } from 'react';
 import {
     ScrollView,
@@ -54,6 +55,7 @@ function SettingRow({ icon, label, value, onToggle, onPress, showArrow, danger }
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const { state, update, reset } = useAppState();
     const [soundEffects, setSoundEffects] = useState(true);
     const [haptics, setHaptics] = useState(true);
@@ -84,13 +86,20 @@ export default function SettingsScreen() {
         setActionLoading(true);
         try {
             if (actionSheet.type === 'logout') {
+                posthog.capture('user_logged_out');
+                // Flush events before sign-out so the logout event is not lost
+                await posthog.flush();
                 await signOut();
+                posthog.reset();
                 reset();
-                router.replace('/onboarding');
+                router.replace('/login');
             } else if (actionSheet.type === 'delete') {
+                posthog.capture('account_deleted');
+                await posthog.flush();
                 await deleteUserAccount();
+                posthog.reset();
                 reset();
-                router.replace('/onboarding');
+                router.replace('/login');
             }
         } catch (err) {
             console.error('Action failed:', err);
@@ -99,7 +108,7 @@ export default function SettingsScreen() {
             setActionLoading(false);
             setActionSheet(prev => ({ ...prev, visible: false }));
         }
-    }, [actionSheet.type, reset, router]);
+    }, [actionSheet.type, reset, router, posthog]);
 
     const handleExportTimeline = async () => {
         if (!state.coupleId || !state.userId) return;
@@ -109,6 +118,7 @@ export default function SettingsScreen() {
             const result = await ExportService.exportTimeline(state.coupleId, state.userId);
 
             if (result.success) {
+                posthog.capture('data_exported', { export_type: 'timeline', success: true });
                 setActionSheet({
                     visible: true,
                     type: 'info',
@@ -153,6 +163,7 @@ export default function SettingsScreen() {
             const result = await ExportService.exportJournal(state.userId);
 
             if (result.success) {
+                posthog.capture('data_exported', { export_type: 'journal', success: true });
                 setActionSheet({
                     visible: true,
                     type: 'info',
@@ -206,6 +217,7 @@ export default function SettingsScreen() {
     const handleCopy = async () => {
         if (!inviteCode) return;
         await Clipboard.setStringAsync(inviteCode);
+        posthog.capture('invite_code_shared', { share_method: 'copy' });
         setCopied(true);
         setTimeout(() => setCopied(false), 3000);
     };
@@ -216,6 +228,7 @@ export default function SettingsScreen() {
             await Share.share({
                 message: `Join me on Couple Diary! 💕\n\nUse my invite code: ${inviteCode}\n\nDownload the app and enter this code to connect with me ✨`,
             });
+            posthog.capture('invite_code_shared', { share_method: 'share_sheet' });
         } catch {
             // user cancelled
         }

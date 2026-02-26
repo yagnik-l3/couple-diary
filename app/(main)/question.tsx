@@ -8,6 +8,7 @@ import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useEffect, useState } from 'react';
 import {
     KeyboardAvoidingView,
@@ -23,6 +24,7 @@ import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 export default function QuestionScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const { state } = useAppState();
     const [answer, setAnswer] = useState('');
     const [loading, setLoading] = useState(true);
@@ -55,6 +57,13 @@ export default function QuestionScreen() {
         try {
             await QuestionService.submitAnswer(question.daily_id, answer);
 
+            // Track the answer submission
+            posthog.capture('question_answered', {
+                question_category: question.category,
+                answer_length: answer.trim().length,
+                streak_count: state.streakCount,
+            });
+
             // Check if partner already answered to decide where to go
             const { partnerAnswered } = await QuestionService.getAnswerStatus(question.daily_id);
 
@@ -65,6 +74,15 @@ export default function QuestionScreen() {
             }
         } catch (err: any) {
             setSubmitError(err.message || 'Failed to submit. Please try again.');
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'AnswerSubmitError',
+                        value: err.message || 'Failed to submit answer',
+                    },
+                ],
+                $exception_source: 'question',
+            });
         } finally {
             setSubmitting(false);
         }

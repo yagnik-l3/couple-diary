@@ -3,9 +3,10 @@ import GradientBackground from '@/components/GradientBackground';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
 import { s } from '@/utils/scale';
-import { sendOtp, verifyOtp } from '@/utils/supabase';
+import { getProfile, sendOtp, verifyOtp } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -23,6 +24,7 @@ type Step = 'email' | 'otp';
 
 export default function LoginScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const [step, setStep] = useState<Step>('email');
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -58,11 +60,41 @@ export default function LoginScreen() {
         try {
             await verifyOtp(email.trim().toLowerCase(), code);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            // index.tsx will handle routing based on profile existence
-            router.replace('/');
+
+            // Identify the user in PostHog after successful login
+            posthog.identify(email.trim().toLowerCase(), {
+                $set: { email: email.trim().toLowerCase() },
+                $set_once: { first_login_date: new Date().toISOString() },
+            });
+            posthog.capture('user_logged_in', {
+                login_method: 'email_otp',
+            });
+
+            // Fetch profile to determine where to send them
+            const profile = await getProfile();
+
+            if (!profile) {
+                // No profile -> onboarding name step
+                router.replace('/onboarding?resume=name');
+            } else if (!profile.couple_id) {
+                // Profile exists but no partner -> onboarding invite step
+                router.replace('/onboarding?resume=invite');
+            } else {
+                // Fully set up -> home
+                router.replace('/(main)/home');
+            }
         } catch (err: any) {
             setError(err.message || 'Invalid code');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'LoginError',
+                        value: err.message || 'OTP verification failed',
+                    },
+                ],
+                $exception_source: 'login',
+            });
         } finally {
             setLoading(false);
         }
@@ -243,6 +275,8 @@ const styles = StyleSheet.create({
         gap: Spacing.lg,
     },
     inputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: Colors.inputBg,
         borderRadius: Radius.lg,
         borderWidth: 1,
@@ -250,12 +284,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     emailInput: {
+        flex: 1,
         ...Typography.body,
         fontSize: s(16),
         color: Colors.textPrimary,
-        paddingHorizontal: Spacing.lg,
         paddingVertical: Spacing.md + 2,
+        paddingHorizontal: Spacing.lg,
         textAlign: 'center',
+        textAlignVertical: 'center',
+        includeFontPadding: false,
     },
     otpContainer: {
         flexDirection: 'row',

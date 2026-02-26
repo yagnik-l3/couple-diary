@@ -13,6 +13,7 @@ import { useAppState } from '@/utils/store';
 import { sendNudge } from '@/utils/supabase';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Dimensions,
@@ -57,6 +58,7 @@ function getUTCCountdown(): string {
 
 export default function HomeScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const { state, update } = useAppState();
     const [menuOpen, setMenuOpen] = useState(false);
     const [ctaState, setCtaState] = useState<'answer' | 'waiting' | 'reveal' | 'done'>('answer');
@@ -108,11 +110,15 @@ export default function HomeScreen() {
 
         try {
             await sendNudge();
+            posthog.capture('nudge_sent', {
+                streak_count: state.streakCount,
+                partner_name: state.partnerName,
+            });
             update({ lastNudgeAt: new Date().toISOString() });
         } catch (err) {
             console.warn('Nudge error:', err);
         }
-    }, [update]);
+    }, [update, posthog, state.streakCount, state.partnerName]);
 
     const handleMenuItemPress = useCallback((route: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

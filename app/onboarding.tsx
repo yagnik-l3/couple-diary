@@ -12,6 +12,7 @@ import { createProfile, getProfile, joinPartner, completeOnboarding as markOnboa
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { usePostHog } from 'posthog-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
@@ -133,10 +134,16 @@ function PulsingIcon({ icon }: { icon: string }) {
 
 export default function OnboardingScreen() {
     const router = useRouter();
+    const posthog = usePostHog();
     const { resume } = useLocalSearchParams<{ resume?: string }>();
     const { update } = useAppState();
     const [activeIndex, setActiveIndex] = useState(0);
     const [resumeHandled, setResumeHandled] = useState(false);
+
+    // ─── Track onboarding started ─────────────────────
+    useEffect(() => {
+        posthog.capture('onboarding_started');
+    }, []);
 
     // Form state
     const [email, setEmail] = useState('');
@@ -186,7 +193,21 @@ export default function OnboardingScreen() {
             // Check if profile exists
             const profile = await getProfile();
             if (profile) {
-                // Returning user — pre-fill state
+                // Returning user — identify in PostHog and pre-fill state
+                posthog.identify(profile.email || email.trim().toLowerCase(), {
+                    $set: {
+                        email: profile.email || email.trim().toLowerCase(),
+                        name: profile.name || `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+                    },
+                });
+
+                // ── Funnel: Auth completed (returning user) ──
+                posthog.capture('onboarding_auth_completed', {
+                    is_returning_user: true,
+                    has_profile: true,
+                    has_partner: !!profile.couple_id,
+                });
+
                 update({
                     userEmail: profile.email,
                     userFirstName: profile.first_name || profile.name?.split(' ')[0] || '',
@@ -212,11 +233,33 @@ export default function OnboardingScreen() {
                 return;
             }
 
+            // New user — identify with email
+            posthog.identify(email.trim().toLowerCase(), {
+                $set: { email: email.trim().toLowerCase() },
+                $set_once: { first_seen_date: new Date().toISOString() },
+            });
+
+            // ── Funnel: Auth completed (new user) ──
+            posthog.capture('onboarding_auth_completed', {
+                is_returning_user: false,
+                has_profile: false,
+                has_partner: false,
+            });
+
             // New user → Continue to Name step
             setActiveIndex(activeIndex + 1);
         } catch (err: any) {
             setError(err.message || 'Invalid code');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'OtpVerificationError',
+                        value: err.message || 'OTP verification failed',
+                    },
+                ],
+                $exception_source: 'onboarding',
+            });
         } finally {
             setLoading(false);
         }
@@ -297,6 +340,19 @@ export default function OnboardingScreen() {
                         // Mark complete on server
                         await markOnboardingComplete();
 
+                        // ── Funnel: Partner connected (User A — partner used my code) ──
+                        posthog.capture('onboarding_partner_connected', {
+                            connection_method: 'code_shared',
+                            partner_name: profile.partner_name || 'Partner',
+                        });
+                        posthog.identify(undefined, {
+                            $set: {
+                                has_partner: true,
+                                partner_name: profile.partner_name || 'Partner',
+                                couple_id: profile.couple_id,
+                            },
+                        });
+
                         update({
                             hasPartner: true,
                             hasCompletedOnboarding: true,
@@ -368,6 +424,20 @@ export default function OnboardingScreen() {
             // Join partner with their code
             const result = await joinPartner(withPartnerCode);
 
+            // ── Funnel: Partner connected (User B — entered partner's code) ──
+            posthog.capture('onboarding_partner_connected', {
+                connection_method: 'code_entered',
+                partner_name: result.partnerName,
+            });
+            // Update person profile with relationship data
+            posthog.identify(undefined, {
+                $set: {
+                    has_partner: true,
+                    partner_name: result.partnerName,
+                    couple_id: result.couple.id,
+                },
+            });
+
             update({
                 hasPartner: true,
                 partnerName: result.partnerName,
@@ -379,6 +449,15 @@ export default function OnboardingScreen() {
             });
         } catch (err: any) {
             setCodeError(err.message || 'Failed to connect');
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'PartnerConnectionError',
+                        value: err.message || 'Failed to connect with partner',
+                    },
+                ],
+                $exception_source: 'onboarding_invite',
+            });
         } finally {
             setLoading(false);
         }
@@ -406,6 +485,27 @@ export default function OnboardingScreen() {
                 timezone: tz,
             });
             setMyInviteCode(profile.invite_code);
+
+            // ── Funnel: Profile saved ──
+            posthog.capture('onboarding_profile_saved', {
+                gender,
+                reminder_time: reminderTime,
+                has_birth_date: !!birthDateStr,
+                timezone: tz,
+            });
+            // Update PostHog person profile with full user data
+            posthog.identify(email.trim().toLowerCase(), {
+                $set: {
+                    name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+                    email: email.trim().toLowerCase(),
+                    gender,
+                    reminder_time: reminderTime,
+                    timezone: tz,
+                    has_birth_date: !!birthDateStr,
+                },
+                $set_once: { signup_date: new Date().toISOString() },
+            });
+
             // Update local state
             update({
                 userEmail: email,
@@ -419,6 +519,15 @@ export default function OnboardingScreen() {
             setActiveIndex(activeIndex + 1); // Go to Invite step
         } catch (err: any) {
             setCodeError(err.message || 'Failed to create profile');
+            posthog.capture('$exception', {
+                $exception_list: [
+                    {
+                        type: 'ProfileCreationError',
+                        value: err.message || 'Failed to create user profile',
+                    },
+                ],
+                $exception_source: 'onboarding_profile',
+            });
         } finally {
             setLoading(false);
         }
@@ -428,13 +537,15 @@ export default function OnboardingScreen() {
     const handleNext = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-        // Intro -> Email
-        if (currentStep.type === 'intro' && activeIndex < 3) { // 3 intros
+        // Intro screens
+        if (currentStep.type === 'intro' && activeIndex < 3) {
             if (activeIndex < 2) {
+                // Still on intro screens — no event yet
                 setActiveIndex(activeIndex + 1);
                 return;
             }
-            // Last intro -> Email
+            // ── Funnel: Last intro screen passed — user saw all features ──
+            posthog.capture('onboarding_intro_completed');
             setActiveIndex(activeIndex + 1);
             return;
         }
@@ -445,9 +556,9 @@ export default function OnboardingScreen() {
             return;
         }
 
-        // OTP -> Name (Handled in handleVerifyOtp)
+        // OTP -> Name (auto-handled in handleVerifyOtp)
         if (currentStep.type === 'otp') {
-            return; // Wait for auto-submit or manual verify
+            return;
         }
 
         // Reminder -> Create Profile -> Invite
@@ -456,13 +567,7 @@ export default function OnboardingScreen() {
             return;
         }
 
-        // Birthdate -> Reminder
-        if (currentStep.type === 'birthdate') {
-            setActiveIndex(activeIndex + 1);
-            return;
-        }
-
-        // Invite -> Finish (Requires code or auto-advances via polling)
+        // Invite -> Finish (code entered or auto-advances via polling)
         if (currentStep.type === 'invite') {
             const code = inviteCode.trim();
             if (code.length === 6) {
@@ -471,6 +576,7 @@ export default function OnboardingScreen() {
             return;
         }
 
+        // Generic step advance (birthdate, name, gender, etc.)
         if (activeIndex < totalSteps - 1) {
             setActiveIndex(activeIndex + 1);
         }
@@ -815,6 +921,16 @@ export default function OnboardingScreen() {
                             loading={loading}
                             style={styles.nextButton}
                         />
+
+                        {activeIndex === 0 && (
+                            <Animated.View entering={FadeIn.delay(800).duration(500)}>
+                                <View style={styles.loginLink}>
+                                    <Text style={styles.loginLinkText}>
+                                        Already have an account? <Text onPress={() => router.push('/login')} style={styles.loginLinkHighlight}>Log in</Text>
+                                    </Text>
+                                </View>
+                            </Animated.View>
+                        )}
                     </Animated.View>
                 </View>
             </KeyboardAvoidingView>
@@ -916,6 +1032,19 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         textAlign: 'center',
         lineHeight: s(24),
+    },
+    loginLink: {
+        marginTop: Spacing.sm,
+        paddingVertical: Spacing.sm,
+    },
+    loginLinkText: {
+        ...Typography.body,
+        fontSize: s(14),
+        color: Colors.textSecondary,
+    },
+    loginLinkHighlight: {
+        ...Typography.bodySemiBold,
+        color: Colors.softPink,
     },
     galaxyPreviewContainer: {
         alignItems: 'center',
