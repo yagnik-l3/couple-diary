@@ -2,14 +2,16 @@ import FloatingCard from '@/components/FloatingCard';
 import GlowButton from '@/components/GlowButton';
 import GradientBackground from '@/components/GradientBackground';
 import InlineToast from '@/components/InlineToast';
+import RateUsModal from '@/components/RateUsModal';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import StarBackground from '@/components/StarBackground';
 import { Colors, Radius, Spacing, Typography } from '@/constants/theme';
+import { useRateUs } from '@/hooks/useRateUs';
 import { QuestionService } from '@/utils/questionService';
 import { useAppState } from '@/utils/store';
 import { useRouter } from 'expo-router';
 import { usePostHog } from 'posthog-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     KeyboardAvoidingView,
     Platform,
@@ -18,7 +20,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
@@ -26,12 +28,18 @@ export default function QuestionScreen() {
     const router = useRouter();
     const posthog = usePostHog();
     const { state } = useAppState();
+    const { shouldShow, onRated, onNever, onRemindLater } = useRateUs();
+
     const [answer, setAnswer] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [question, setQuestion] = useState<{ text: string; category: string; daily_id: string } | null>(null);
     const [error, setError] = useState('');
     const [submitError, setSubmitError] = useState('');
+    const [showRateUs, setShowRateUs] = useState(false);
+
+    // Store next route so navigation happens after modal dismissal
+    const pendingRoute = useRef<{ pathname: string; params: any } | null>(null);
 
     // Fetch today's question on mount
     useEffect(() => {
@@ -51,26 +59,31 @@ export default function QuestionScreen() {
         })();
     }, []);
 
+    // ─── Submit Answer ────────────────────────────────
     const handleSubmit = async () => {
         if (!answer.trim() || !question) return;
         setSubmitting(true);
         try {
             await QuestionService.submitAnswer(question.daily_id, answer);
 
-            // Track the answer submission
             posthog.capture('question_answered', {
                 question_category: question.category,
                 answer_length: answer.trim().length,
                 streak_count: state.streakCount,
             });
 
-            // Check if partner already answered to decide where to go
             const { partnerAnswered } = await QuestionService.getAnswerStatus(question.daily_id);
+            const nextRoute = partnerAnswered
+                ? { pathname: '/(main)/reveal', params: { daily_id: question.daily_id } }
+                : { pathname: '/(main)/waiting', params: { daily_id: question.daily_id } };
 
-            if (partnerAnswered) {
-                router.replace({ pathname: '/(main)/reveal', params: { daily_id: question.daily_id } } as any);
+            // Show Rate Us modal if eligible — navigate after dismissal
+            const eligible = await shouldShow();
+            if (eligible) {
+                pendingRoute.current = nextRoute;
+                setShowRateUs(true);
             } else {
-                router.replace({ pathname: '/(main)/waiting', params: { daily_id: question.daily_id } } as any);
+                router.replace(nextRoute as any);
             }
         } catch (err: any) {
             setSubmitError(err.message || 'Failed to submit. Please try again.');
@@ -88,21 +101,41 @@ export default function QuestionScreen() {
         }
     };
 
+    // ─── Rate Us Handlers ─────────────────────────────
+    const navigatePending = () => {
+        setShowRateUs(false);
+        if (pendingRoute.current) {
+            router.replace(pendingRoute.current as any);
+            pendingRoute.current = null;
+        }
+    };
+
+    const handleRated = async () => {
+        await onRated();
+        navigatePending();
+    };
+
+    const handleNever = async () => {
+        await onNever();
+        navigatePending();
+    };
+
+    const handleRemindLater = async () => {
+        await onRemindLater();
+        navigatePending();
+    };
+
+    // ─── Loading State ────────────────────────────────
     if (loading) {
         return (
             <GradientBackground variant="full">
                 <StarBackground />
                 <View style={styles.container}>
-                    {/* Back Button Skeleton */}
                     <SkeletonLoader.Line width={60} height={20} style={{ marginBottom: Spacing.lg }} />
-
-                    {/* Tag Row Skeleton */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
                         <SkeletonLoader.Base width={120} height={34} borderRadius={Radius.full} />
                         <SkeletonLoader.Line width={60} height={14} style={{ marginBottom: 0 }} />
                     </View>
-
-                    {/* Question Card Skeleton */}
                     <View style={{ marginBottom: Spacing.xl }}>
                         <FloatingCard style={[styles.questionCard, { paddingVertical: Spacing.xl }]}>
                             <SkeletonLoader.Base width={40} height={40} borderRadius={20} style={{ marginBottom: Spacing.md, opacity: 0.5 }} />
@@ -111,14 +144,10 @@ export default function QuestionScreen() {
                             <SkeletonLoader.Base width={40} height={40} borderRadius={20} style={{ marginTop: Spacing.md, opacity: 0.5 }} />
                         </FloatingCard>
                     </View>
-
-                    {/* Answer Input Skeleton */}
                     <View style={{ marginBottom: Spacing.xl }}>
                         <SkeletonLoader.Line width={100} height={16} style={{ marginBottom: Spacing.sm }} />
                         <SkeletonLoader.Base width="100%" height={160} borderRadius={Radius.lg} />
                     </View>
-
-                    {/* Button Skeleton */}
                     <SkeletonLoader.Base width="100%" height={56} borderRadius={Radius.full} />
                 </View>
             </GradientBackground>
@@ -139,85 +168,93 @@ export default function QuestionScreen() {
     }
 
     return (
-        <GradientBackground variant="full">
-            <StarBackground />
-            {/* Back */}
-            <View style={styles.header}>
-                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Text style={styles.backText}>← Back</Text>
-                </TouchableOpacity>
-                <View style={styles.tag}>
-                    <Text style={styles.tagText}>💭 {question?.category || 'Daily Question'}</Text>
+        <>
+            <GradientBackground variant="full">
+                <StarBackground />
+                {/* Header */}
+                <View style={styles.header}>
+                    <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                        <Text style={styles.backText}>← Back</Text>
+                    </TouchableOpacity>
+                    <View style={styles.tag}>
+                        <Text style={styles.tagText}>💭 {question?.category || 'Daily Question'}</Text>
+                    </View>
+                    <Text style={styles.dayText}>Day {state.streakCount}</Text>
                 </View>
-                <Text style={styles.dayText}>Day {state.streakCount}</Text>
-            </View>
-            <KeyboardAvoidingView
-                style={styles.flex}
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            >
-                <ScrollView
-                    contentContainerStyle={styles.container}
-                    keyboardShouldPersistTaps="handled"
+
+                <KeyboardAvoidingView
+                    style={styles.flex}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 >
+                    <ScrollView
+                        contentContainerStyle={styles.container}
+                        keyboardShouldPersistTaps="handled"
+                    >
+                        {/* Category Tag row (spacer) */}
+                        <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.tagRow} />
 
-                    {/* Category Tag */}
-                    <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.tagRow}>
-                    </Animated.View>
+                        {/* Question Card */}
+                        <Animated.View entering={FadeInUp.delay(400).duration(800)}>
+                            <FloatingCard style={styles.questionCard}>
+                                <Text style={styles.questionMark}>"</Text>
+                                <Text style={styles.questionText}>{question?.text}</Text>
+                                <Text style={styles.questionMarkEnd}>"</Text>
+                            </FloatingCard>
+                        </Animated.View>
 
-                    {/* Question Card */}
-                    <Animated.View entering={FadeInUp.delay(400).duration(800)}>
-                        <FloatingCard style={styles.questionCard}>
-                            <Text style={styles.questionMark}>"</Text>
-                            <Text style={styles.questionText}>{question?.text}</Text>
-                            <Text style={styles.questionMarkEnd}>"</Text>
-                        </FloatingCard>
-                    </Animated.View>
-
-                    {/* Answer Input */}
-                    <Animated.View entering={FadeInUp.delay(600).duration(800)} style={styles.answerSection}>
-                        <Text style={styles.answerLabel}>Your thoughts...</Text>
-                        <View style={styles.inputWrapper}>
-                            <TextInput
-                                style={styles.textArea}
-                                value={answer}
-                                onChangeText={setAnswer}
-                                placeholder="Write from your heart..."
-                                placeholderTextColor={Colors.textMuted}
-                                multiline
-                                numberOfLines={5}
-                                textAlignVertical="top"
-                                maxLength={500}
-                            />
-                            <View style={styles.inputFooter}>
-                                <Text style={styles.charCount}>{answer.length}/500</Text>
+                        {/* Answer Input */}
+                        <Animated.View entering={FadeInUp.delay(600).duration(800)} style={styles.answerSection}>
+                            <Text style={styles.answerLabel}>Your thoughts...</Text>
+                            <View style={styles.inputWrapper}>
+                                <TextInput
+                                    style={styles.textArea}
+                                    value={answer}
+                                    onChangeText={setAnswer}
+                                    placeholder="Write from your heart..."
+                                    placeholderTextColor={Colors.textMuted}
+                                    multiline
+                                    numberOfLines={5}
+                                    textAlignVertical="top"
+                                    maxLength={500}
+                                />
+                                <View style={styles.inputFooter}>
+                                    <Text style={styles.charCount}>{answer.length}/500</Text>
+                                </View>
                             </View>
-                        </View>
-                    </Animated.View>
+                        </Animated.View>
 
-                    {/* Submit Error Toast */}
-                    {submitError ? (
-                        <InlineToast
-                            message={submitError}
-                            visible={!!submitError}
-                            type="error"
-                            duration={4000}
-                            onHide={() => setSubmitError('')}
-                        />
-                    ) : null}
+                        {/* Submit Error Toast */}
+                        {submitError ? (
+                            <InlineToast
+                                message={submitError}
+                                visible={!!submitError}
+                                type="error"
+                                duration={4000}
+                                onHide={() => setSubmitError('')}
+                            />
+                        ) : null}
 
-                    <Animated.View entering={FadeInUp.delay(800).duration(600)}>
-                        <GlowButton
-                            title="Send to Universe ✨"
-                            onPress={handleSubmit}
-                            disabled={answer.trim().length === 0 || submitting}
-                            style={styles.sendButton}
-                            loading={submitting}
-                        />
-                    </Animated.View>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                        <Animated.View entering={FadeInUp.delay(800).duration(600)}>
+                            <GlowButton
+                                title="Send to Universe ✨"
+                                onPress={handleSubmit}
+                                disabled={answer.trim().length === 0 || submitting}
+                                style={styles.sendButton}
+                                loading={submitting}
+                            />
+                        </Animated.View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </GradientBackground>
 
-        </GradientBackground>
+            {/* Rate Us Modal — rendered outside GradientBackground so it sits above everything */}
+            <RateUsModal
+                visible={showRateUs}
+                onRated={handleRated}
+                onNever={handleNever}
+                onRemindLater={handleRemindLater}
+            />
+        </>
     );
 }
 
@@ -239,11 +276,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         padding: Spacing.xl,
     },
-    loadingText: {
-        ...Typography.body,
-        color: Colors.textSecondary,
-        marginTop: Spacing.md,
-    },
     errorEmoji: {
         fontSize: 48,
         marginBottom: Spacing.md,
@@ -254,9 +286,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontSize: 15,
     },
-    backButton: {
-        // marginBottom: Spacing.lg,
-    },
+    backButton: {},
     backText: {
         ...Typography.body,
         color: Colors.textSecondary,
